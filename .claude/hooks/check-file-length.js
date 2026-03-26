@@ -61,12 +61,12 @@ try {
   const lineCount = content.endsWith('\n') ? lines.length - 1 : lines.length;
 
   if (lineCount >= HARD_LIMIT) {
-    process.stderr.write(`BLOCKED: ${filePath} is ${lineCount} lines (hard limit ${HARD_LIMIT}).\n`);
+    process.stderr.write(`BLOCKED: ${filePath} is ${lineCount} lines (hard limit ${HARD_LIMIT}).\nFix: Split by responsibility into separate modules. Re-export from an index file if needed.\n`);
     process.exit(2);
   }
 
   if (lineCount > WARN_LIMIT) {
-    process.stderr.write(`WARNING: ${filePath} is ${lineCount} lines (recommended max ${WARN_LIMIT}).\n`);
+    process.stderr.write(`WARNING: ${filePath} is ${lineCount} lines (recommended max ${WARN_LIMIT}).\nFix: Split by responsibility into separate modules. Re-export from an index file if needed.\n`);
   }
 } catch (err) {
   process.stderr.write(`check-file-length.js error: ${err.message}\n`);

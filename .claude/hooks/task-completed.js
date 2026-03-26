@@ -114,6 +114,7 @@ if (fs.existsSync(srcDir)) {
     for (const v of violations) {
       process.stderr.write(`  ${v}\n`);
     }
+    process.stderr.write('Fix: Run /review to get specific findings, then fix before proceeding.\n');
   } else {
     process.stderr.write('Architecture check: PASS\n');
   }

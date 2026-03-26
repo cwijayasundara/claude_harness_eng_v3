@@ -36,7 +36,7 @@ function checkPython(lines, filePath) {
         const length = i - ended.startLine; // lines from def to just before current
         if (length > MAX_LINES) {
           warnings.push(
-            `WARNING: Function ${ended.name} in ${filePath}:${ended.startLine + 1} is ${length} lines (max ${MAX_LINES}).`
+            `WARNING: Function ${ended.name} in ${filePath}:${ended.startLine + 1} is ${length} lines (max ${MAX_LINES}).\nFix: Decompose into named sub-functions. Each should be testable in isolation.`
           );
         }
       }
@@ -103,7 +103,7 @@ function checkTypeScript(lines, filePath) {
         const length = i - ended.startLine + 1;
         if (length > MAX_LINES) {
           warnings.push(
-            `WARNING: Function ${ended.name} in ${filePath}:${ended.startLine + 1} is ${length} lines (max ${MAX_LINES}).`
+            `WARNING: Function ${ended.name} in ${filePath}:${ended.startLine + 1} is ${length} lines (max ${MAX_LINES}).\nFix: Decompose into named sub-functions. Each should be testable in isolation.`
           );
         }
       } else {

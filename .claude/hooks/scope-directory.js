@@ -48,7 +48,7 @@ const resolvedProject = path.resolve(projectDir);
 
 // Ensure the file path is within the project directory
 if (!resolvedFilePath.startsWith(resolvedProject + path.sep) && resolvedFilePath !== resolvedProject) {
-  process.stderr.write(`BLOCKED: Write outside project directory: ${resolvedFilePath}\n`);
+  process.stderr.write(`BLOCKED: Write outside project directory: ${resolvedFilePath}\nFix: Move the file to a location within the project directory or use .claude/ for scaffold files.\n`);
   process.exit(2);
 }
 

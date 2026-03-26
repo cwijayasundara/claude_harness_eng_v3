@@ -124,6 +124,7 @@ if (violations.length > 0) {
   for (const v of violations) {
     process.stderr.write(`  ${v}\n`);
   }
+  process.stderr.write('Fix: Move imports to the correct layer or extract shared types to src/types/.\n');
   process.exit(2);
 }
 

@@ -79,7 +79,7 @@ try {
     if (higherLayers.includes(importedSegment)) {
       const lineNum = i + 1;
       process.stderr.write(
-        `BLOCKED: Architecture violation in ${filePath}:${lineNum} — ${currentLayer} cannot import from ${importedSegment}\n`
+        `BLOCKED: Architecture violation in ${filePath}:${lineNum} — ${currentLayer} cannot import from ${importedSegment}\nFix: Move the import to the correct layer, or extract the shared type to src/types/.\n`
       );
       violated = true;
     }

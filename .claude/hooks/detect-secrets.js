@@ -80,6 +80,7 @@ if (findings.length > 0) {
   for (const { label, value } of findings) {
     lines.push(`  - ${label}: ${value}`);
   }
+  lines.push('Fix: Move secrets to .env and reference via os.environ.get(). Never hardcode credentials.');
   process.stderr.write(lines.join('\n') + '\n');
   process.exit(2);
 }

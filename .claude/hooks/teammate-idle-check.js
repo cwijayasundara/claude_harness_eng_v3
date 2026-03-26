@@ -90,7 +90,7 @@ for (const srcRelPath of uniquePaths) {
 if (missingTests.length > 0) {
   for (const file of missingTests) {
     process.stderr.write(
-      `Task marked complete but no tests found for ${file}. Write tests before going idle.\n`
+      `Task marked complete but no tests found for ${file}. Write tests before going idle.\nFix: Write tests for ${file} before going idle. Follow TDD: test first, then implement.\n`
     );
   }
   process.exit(2);

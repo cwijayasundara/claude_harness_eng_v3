@@ -50,8 +50,8 @@ try {
       });
     }
   }
-} catch (_) {
-  // Non-fatal: suppress all errors
+} catch (lintErr) {
+  process.stderr.write(`lint-on-save: auto-fix failed — ${lintErr.message}\nFix: Review the linter output above and resolve any unfixable issues manually before saving.\n`);
 }
 
 process.exit(0);

@@ -73,14 +73,14 @@ try {
 } catch (_) {
   // Report doesn't exist — verdict is not PASS
   process.stderr.write(
-    `BLOCKED: Sprint contract for group ${group} not satisfied. Run /evaluate first.\n`
+    `BLOCKED: Sprint contract for group ${group} not satisfied. Run /evaluate first.\nFix: Run /evaluate to verify the sprint contract, then retry the commit.\n`
   );
   process.exit(2);
 }
 
 if (!reportContent.includes('VERDICT: PASS')) {
   process.stderr.write(
-    `BLOCKED: Sprint contract for group ${group} not satisfied. Run /evaluate first.\n`
+    `BLOCKED: Sprint contract for group ${group} not satisfied. Run /evaluate first.\nFix: Run /evaluate to verify the sprint contract, then retry the commit.\n`
   );
   process.exit(2);
 }
