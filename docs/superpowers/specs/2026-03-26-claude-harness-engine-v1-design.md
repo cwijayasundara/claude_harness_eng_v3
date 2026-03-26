@@ -120,10 +120,12 @@ Combines forge_v2's brd-creator, spec-writer, and architect. Owns the entire pla
 The implementer. Only agent with `Agent` tool for spawning agent teams.
 
 - **Role:** Implement code + tests from stories, spawn agent teams for parallel execution, negotiate sprint contracts with evaluator
-- **Tools:** Read, Write, Edit, Glob, Grep, Bash, Agent, TeamCreate
+- **Tools:** Read, Write, Edit, Glob, Grep, Bash, Agent
 - **Spawned by:** `/implement`, `/auto`
 - **Outputs:** `backend/`, `frontend/`, `sprint-contracts/`
 - **Key rule:** Never self-evaluate. Write code, hand off to evaluator.
+- **Agent teams:** The generator uses Claude Code's `TeamCreate` tool (part of the Agent Teams system) to spawn teammates. This is a Claude Code built-in — not a custom tool. It requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in settings.json. The generator tells Claude Code to "create an agent team" in natural language, specifying teammate count, file ownership, and model. See [Claude Code Agent Teams docs](https://code.claude.com/docs/en/agent-teams).
+- **Hard dependency:** Agent teams require Claude Code v2.1.32+. This harness cannot run outside Claude Code (e.g., raw API calls) because it depends on agent teams, shared task lists, teammate messaging, and TeammateIdle hooks.
 
 ### 2.3 Evaluator
 
@@ -180,9 +182,9 @@ All three layers must pass before a sprint contract is "done".
 
 ### Layer 1: API Verification
 
-For each endpoint in the sprint contract, the evaluator uses httpx to hit the RUNNING server:
+For each endpoint in the sprint contract, the evaluator uses `curl` or `python -c "import httpx; ..."` via the **Bash tool** to hit the RUNNING server (not a library import — shell commands against localhost):
 - Verify status codes match contract
-- Validate response body against `api-contracts.schema.json`
+- Validate response body against `api-contracts.schema.json` (evaluator runs `python -c` with jsonschema validation)
 - Test error cases (bad data → 422, missing resource → 404)
 - Verify data persistence (POST then GET, confirm data matches)
 
@@ -212,6 +214,15 @@ If average score < threshold, critique sent to generator for iteration (GAN loop
 
 Negotiated between generator and evaluator before each group's implementation.
 
+### Negotiation Protocol
+
+The sprint contract negotiation is a two-step propose-approve exchange orchestrated by the `/auto` skill:
+
+1. **Generator proposes:** `/auto` spawns the generator as a subagent with the prompt: "Read stories [IDs] and their acceptance criteria. Read api-contracts.md and component-map.md. Propose a sprint contract listing all API checks, Playwright checks, and architecture checks needed to verify this group is done. Write the contract to sprint-contracts/{group}.json."
+2. **Evaluator reviews:** `/auto` spawns the evaluator as a subagent with the prompt: "Read the proposed sprint contract at sprint-contracts/{group}.json. Read the stories' acceptance criteria. Is this contract sufficient to verify the group is done? If checks are missing, add them. If checks are untestable, flag them. Write the final contract back to sprint-contracts/{group}.json."
+3. **No back-and-forth.** The evaluator has final say. If the evaluator adds checks, they stand. This keeps negotiation to exactly 2 agent calls per group (one generator, one evaluator) rather than an unbounded loop.
+4. **Contract is immutable after negotiation.** Neither agent may modify it during implementation. If implementation reveals the contract is wrong, the architecture amendment process (Section 6) is used.
+
 ### Format
 
 ```json
@@ -225,7 +236,7 @@ Negotiated between generator and evaluator before each group's implementation.
         "path": "/documents/upload",
         "setup": "upload test file as multipart",
         "expect": { "status": 201, "body_contains": ["document_id"] },
-        "schema_ref": "#/paths/~1documents~1upload/post/response/200"
+        "schema_ref": "#/paths/~1documents~1upload/post/response/201"
       }
     ],
     "playwright_checks": [
@@ -243,7 +254,7 @@ Negotiated between generator and evaluator before each group's implementation.
     "design_checks": {
       "pages": ["/upload", "/documents/{id}"],
       "min_score": 7,
-      "criteria": ["design_quality", "craft", "functionality"]
+      "criteria": ["design_quality", "originality", "craft", "functionality"]
     },
     "architecture_checks": {
       "files_must_exist": [
@@ -321,12 +332,16 @@ specs/design/
 
 ### Architecture Amendment Process
 
-If the generator discovers the architecture needs adjustment:
-1. Generator proposes amendment (does NOT silently change code)
-2. Planner updates architecture artifacts (`.md` + `.schema.json`)
-3. Amendment committed: `refactor: update api-contracts for ParseOptions`
-4. Generator implements against updated contract
-5. Evaluator verifies against updated schema
+If the generator discovers the architecture needs adjustment during implementation:
+
+1. **Generator writes amendment proposal** to `specs/design/amendments/{group}-{n}.md` with: what needs to change, why, and which schema files are affected. The generator does NOT modify architecture files directly.
+2. **`/auto` detects the amendment file** (checks `specs/design/amendments/` after each agent team completes). If found, it spawns the planner as a subagent with the prompt: "Read amendment proposal at {path}. Update the architecture artifacts (`.md` + `.schema.json`) accordingly. Commit the changes."
+3. **Planner updates** `api-contracts.md`, `api-contracts.schema.json`, `data-models.md`, `data-models.schema.json`, `component-map.md` as needed.
+4. Amendment committed: `refactor: update api-contracts for ParseOptions`
+5. Generator implements against updated contract
+6. Evaluator verifies against updated schema
+
+This file-based handoff avoids needing direct agent-to-agent messaging between generator and planner (which would require them to be in the same team).
 
 ---
 
@@ -378,6 +393,49 @@ For builds spanning multiple context windows:
 - Features.json tracks granular pass/fail per feature
 - No wasted work rebuilding context
 
+#### `claude-progress.txt` Format Specification
+
+```
+=== Session {N} ===
+date: {ISO 8601 timestamp}
+mode: {full|lean|solo}
+groups_completed: [{comma-separated group IDs}]
+groups_remaining: [{comma-separated group IDs}]
+current_group: {group ID} ({group description})
+current_stories: [{comma-separated story IDs}]
+sprint_contract: sprint-contracts/{group}.json
+last_commit: {short hash} "{commit message}"
+features_passing: {N} / {total}
+coverage: {N}%
+learned_rules: {N}
+blocked_stories: [{comma-separated or "none"}]
+next_action: {what /auto should do next}
+```
+
+Each field is a key-value pair on its own line. The `=== Session {N} ===` header is appended (not overwritten) so the file serves as a session history. The agent reads only the LAST session block for recovery.
+
+### Stopping Criteria Precedence
+
+Stopping criteria are evaluated as OR — ANY one triggers a halt. In case of conflict:
+
+1. **Hard stop (immediate):** Architecture violation hooks can't fix, or max iterations exceeded
+2. **Escalate to human:** A story fails 3 consecutive iterations → halt with BLOCKED status
+3. **Coverage gate:** Coverage drops below threshold after a commit → halt (this overrides "all features pass" because a coverage regression means something was deleted or broken)
+4. **Success:** All features in features.json pass AND coverage >= threshold → halt with SUCCESS status
+
+The priority order means: if all features pass but coverage dropped, the harness halts with a FAIL, not SUCCESS.
+
+### Docker Stack Management
+
+The evaluator needs a running application. Docker lifecycle is managed as follows:
+
+- **Startup:** `/auto` runs `bash init.sh` before the first evaluator check of each iteration. `init.sh` uses `docker compose up -d --build` which is incremental — only rebuilds changed services.
+- **Health gate:** After startup, evaluator runs health checks with retry: `curl --retry 10 --retry-delay 3 --retry-all-errors -sf $url`. URLs come from `project-manifest.json` (`api_base_url` + `health_check`, `ui_base_url`). If health checks fail after all retries → Docker fail category in self-healing.
+- **Between groups:** Docker stack stays running. No teardown between groups. Services are rebuilt only if code changed (`docker compose up -d --build` handles this).
+- **Port conflicts:** `project-manifest.json` defines ports. If a port is in use, `init.sh` runs `docker compose down` first, then `up`. This is a sequential fallback, not the default.
+- **Teardown:** Docker is torn down only on `/auto` completion (all groups done or stopping criteria met): `docker compose down -v`.
+- **Evaluator does NOT start Docker itself.** The `/auto` orchestrator starts it. The evaluator assumes services are healthy when it runs.
+
 ### GAN Design Loop (frontend groups)
 
 After main ratchet passes, if group contains UI stories:
@@ -400,6 +458,7 @@ After main ratchet passes, if group contains UI stories:
     "id": "F001",
     "category": "functional",
     "story": "E3-S1",
+    "group": "C",
     "description": "Upload endpoint accepts PDF, DOCX, PNG, JPG, TIFF",
     "steps": [
       "POST /documents/upload with sample file",
@@ -407,7 +466,10 @@ After main ratchet passes, if group contains UI stories:
       "Verify file stored in upload directory",
       "POST with .exe file -> verify 415 rejection"
     ],
-    "passes": false
+    "passes": false,
+    "last_evaluated": null,
+    "failure_reason": null,
+    "failure_layer": null
   }
 ]
 ```
@@ -416,9 +478,11 @@ After main ratchet passes, if group contains UI stories:
 
 - Generated by `/spec` from acceptance criteria
 - Each acceptance criterion maps to 1+ features with testable steps
-- Agents may ONLY modify the `passes` field
-- Features cannot be removed or edited — prevents generator from "passing" by deleting hard tests
-- Evaluator updates `passes` after verifying against running app
+- Agents may ONLY modify: `passes`, `last_evaluated`, `failure_reason`, `failure_layer`
+- `failure_layer` is one of: `"api"`, `"playwright"`, `"design"`, `"unit_test"`, `"lint"`, `"docker"`, or `null`
+- Features cannot be removed, and `id`, `description`, `steps` cannot be edited — prevents the generator from "passing" by deleting hard tests
+- Evaluator updates fields after verifying against running app
+- `last_evaluated` is ISO 8601 timestamp of last evaluation run
 
 ---
 
@@ -462,7 +526,7 @@ After main ratchet passes, if group contains UI stories:
 
 ### Configuration
 
-11 hooks total. Security hooks block (exit 2). Quality hooks warn or block. Gate hooks block on commit.
+12 hooks total. Security hooks block (exit 2). Quality hooks warn or block. Gate hooks block on commit.
 
 **Retained from forge_v2:**
 - `scope-directory.js` — Block writes outside project
@@ -470,6 +534,7 @@ After main ratchet passes, if group contains UI stories:
 - `detect-secrets.js` — Scan for API keys, PII
 - `lint-on-save.js` — Auto-fix (reads manifest for tool)
 - `typecheck.js` — Type validation (reads manifest)
+- `check-architecture.js` — Block upward layer imports (reads manifest for layer config)
 - `check-function-length.js` — Warn >50 lines
 - `check-file-length.js` — Warn 200, block 300
 - `pre-commit-gate.js` — Full architecture scan before commit
@@ -550,6 +615,7 @@ All agents, agent teams, sprint contracts, evaluator, design critic GAN loop.
 - Cost: ~$100-300
 - Duration: 2-8 hours
 - Best for: Production apps, complex requirements, external API integrations
+- **Skill behavior:** All skills operate normally. `/auto` runs full ratchet gate (all 6 sub-gates). `/evaluate` runs all 3 verification layers. Sprint contracts negotiated per group.
 
 ### Lean Mode
 
@@ -557,6 +623,12 @@ Agent teams and evaluator, but no design critic GAN loop. API + Playwright verif
 - Cost: ~$30-80
 - Duration: 1-3 hours
 - Best for: Backend-heavy apps, internal tools, admin dashboards
+- **Skill behavior:**
+  - `/auto` runs ratchet gates 1-5 only (skips gate 6: design critic)
+  - `/evaluate` runs Layer 1 (API) + Layer 2 (Playwright) only (skips Layer 3: vision scoring)
+  - Sprint contracts omit `design_checks` section
+  - Agent teams still used for parallel story execution
+  - `max_self_heal_attempts` reduced to 2
 
 ### Solo Mode
 
@@ -564,6 +636,13 @@ Single generator agent, no teams, no evaluator. Tests + lint ratchet only.
 - Cost: ~$5-15
 - Duration: 15-45 minutes
 - Best for: Bug fixes, small features, prototyping
+- **Skill behavior:**
+  - `/auto` runs ratchet gates 1-3 only (tests + lint + coverage). No evaluator, no architecture schema validation, no design critic.
+  - `/evaluate` is a no-op (prints "Solo mode: skipping evaluator. Run tests manually.")
+  - `/implement` uses generator directly (no agent team, no `TeamCreate`)
+  - Sprint contracts not generated. Stories executed sequentially.
+  - `/review` runs security-reviewer only (no evaluator)
+  - Session chaining still active (features.json + progress file still updated)
 
 ### Token-Saving Strategies
 
@@ -589,7 +668,7 @@ Single generator agent, no teams, no evaluator. Tests + lint ratchet only.
 |   |-- ui-designer.md
 |   +-- test-engineer.md
 |
-|-- skills/                          # 10 task + 4 reference skills
+|-- skills/                          # 10 task + 3 support + 4 reference = 17 skills
 |   |-- brd/SKILL.md
 |   |-- spec/SKILL.md
 |   |-- design/SKILL.md
@@ -615,12 +694,13 @@ Single generator agent, no teams, no evaluator. Tests + lint ratchet only.
 |       |-- SKILL.md
 |       +-- references/
 |
-|-- hooks/                           # 11 enforcement hooks
+|-- hooks/                           # 12 enforcement hooks
 |   |-- scope-directory.js
 |   |-- protect-env.js
 |   |-- detect-secrets.js
 |   |-- lint-on-save.js
 |   |-- typecheck.js
+|   |-- check-architecture.js
 |   |-- check-function-length.js
 |   |-- check-file-length.js
 |   |-- pre-commit-gate.js
@@ -689,7 +769,7 @@ Single generator agent, no teams, no evaluator. Tests + lint ratchet only.
 10. Initialize git with `.gitignore`
 11. Initialize `features.json` (empty array)
 12. Initialize `claude-progress.txt`: "Session 0: Project scaffolded. Next: /brd"
-13. Report: "Installed 7 agents, 14 skills, 11 hooks, 5 templates. Run /brd to start."
+13. Report: "Installed 7 agents, 17 skills, 12 hooks, 5 templates. Run /brd to start."
 
 ---
 
