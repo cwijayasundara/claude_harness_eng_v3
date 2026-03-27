@@ -1,7 +1,6 @@
 ---
 name: implement
 description: Generate production code and tests for a story group using agent teams for parallel execution.
-disable-model-invocation: true
 argument-hint: "[group-id]"
 context: fork
 agent: generator

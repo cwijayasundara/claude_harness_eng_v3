@@ -1,7 +1,6 @@
 ---
 name: design
 description: Generate system architecture, machine-readable schemas, and UI mockups. Spawns planner + ui-designer concurrently.
-disable-model-invocation: true
 context: fork
 ---
 

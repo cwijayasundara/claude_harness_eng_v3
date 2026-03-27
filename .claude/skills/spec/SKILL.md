@@ -1,7 +1,6 @@
 ---
 name: spec
 description: Decompose BRD into epics, stories, dependency graph, and feature list for agent team execution.
-disable-model-invocation: true
 argument-hint: "[path-to-BRD]"
 context: fork
 agent: planner

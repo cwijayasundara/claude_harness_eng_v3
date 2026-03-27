@@ -1,7 +1,6 @@
 ---
 name: improve
 description: Enhance existing features through story-driven development with full verification.
-disable-model-invocation: true
 argument-hint: "[description or story-id]"
 context: fork
 ---

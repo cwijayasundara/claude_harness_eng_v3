@@ -1,7 +1,6 @@
 ---
 name: auto
 description: Autonomous build loop with Karpathy ratcheting, GAN evaluator, and session chaining. Iterates story groups until all features pass or stopping criteria met.
-disable-model-invocation: true
 argument-hint: "[--mode full|lean|solo|turbo] [--group GROUP_ID]"
 context: fork
 ---

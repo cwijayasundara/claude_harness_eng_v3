@@ -1,7 +1,6 @@
 ---
 name: brd
 description: Socratic interview to create a Business Requirements Document. First step in the SDLC pipeline.
-disable-model-invocation: true
 context: fork
 agent: planner
 ---

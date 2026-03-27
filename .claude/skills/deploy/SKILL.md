@@ -1,7 +1,6 @@
 ---
 name: deploy
 description: Generate Docker Compose stack, Dockerfiles, environment config, and init.sh bootstrap script.
-disable-model-invocation: true
 argument-hint: "[--up]"
 context: fork
 agent: planner

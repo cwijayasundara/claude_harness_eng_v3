@@ -1,7 +1,6 @@
 ---
 name: lint-drift
 description: Scan codebase for pattern drift and generate targeted cleanup PRs. Entropy control for agent-generated code.
-disable-model-invocation: true
 context: fork
 ---
 

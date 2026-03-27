@@ -1,7 +1,6 @@
 ---
 name: test
 description: Generate test plan, test cases, test data fixtures, and Playwright E2E tests mapped to acceptance criteria.
-disable-model-invocation: true
 argument-hint: "[--plan-only | --e2e-only]"
 context: fork
 agent: test-engineer

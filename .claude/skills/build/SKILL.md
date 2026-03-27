@@ -1,7 +1,6 @@
 ---
 name: build
 description: Full SDLC pipeline. Runs all phases end-to-end with human gates on phases 1-3.
-disable-model-invocation: true
 argument-hint: "[path-to-BRD] [--mode full|lean|solo]"
 context: fork
 ---

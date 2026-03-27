@@ -1,7 +1,6 @@
 ---
 name: review
 description: Run evaluator and security reviewer concurrently for comprehensive quality gate.
-disable-model-invocation: true
 argument-hint: "[story-id]"
 context: fork
 ---

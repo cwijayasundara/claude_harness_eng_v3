@@ -1,7 +1,6 @@
 ---
 name: fix-issue
 description: Standard GitHub issue workflow. Branch, reproduce, fix, test, PR.
-disable-model-invocation: true
 argument-hint: "[#issue-number]"
 context: fork
 ---
