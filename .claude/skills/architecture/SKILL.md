@@ -1,3 +1,8 @@
+---
+name: architecture
+description: Layered architecture rules — one-way imports, module boundaries, file organization.
+---
+
 # Architecture Skill
 
 Reference skill for generator teammates. Read this before designing or scaffolding any module.

@@ -1,3 +1,8 @@
+---
+name: code-gen
+description: Code generation quality principles — TDD, typing, error handling, logging, API integration, LLM integration.
+---
+
 # Code Generation Skill
 
 Reference skill for generator teammates. Read this before writing any code.

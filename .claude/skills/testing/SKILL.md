@@ -1,3 +1,8 @@
+---
+name: testing
+description: Testing patterns — Playwright E2E, test structure, fixture management, mock boundaries.
+---
+
 # Testing Skill
 
 Reference skill for generator teammates. Read this before writing any test code.

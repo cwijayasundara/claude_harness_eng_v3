@@ -1,3 +1,8 @@
+---
+name: evaluation
+description: Evaluation patterns — sprint contract format, three-layer verification, scoring rubric references.
+---
+
 # Evaluation Skill
 
 Reference skill for the evaluator agent. Points to authoritative sources for evaluation patterns.
