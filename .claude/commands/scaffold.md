@@ -119,15 +119,15 @@ Preset mappings:
 
 ## Step 3: Copy Scaffold Files
 
-First, locate the plugin source directory. The harness plugin files live alongside this command file.
-To find the source, search for the plugin marker file:
+First, locate the plugin source directory by finding the harness plugin.json:
 
 ```bash
-# Find the harness plugin root by locating its plugin.json
-PLUGIN_SOURCE=$(find ~/Documents ~/claude-harness-engine ~ -maxdepth 5 -path "*claude_harness_eng_v1/.claude" -o -path "*claude-harness-engine/.claude" 2>/dev/null | head -1)
+# Find the harness plugin by looking for its unique plugin.json
+PLUGIN_SOURCE=$(find ~/Documents ~/claude-harness-engine ~ -maxdepth 6 -name "plugin.json" -path "*/.claude-plugin/*" -exec grep -l "claude-harness-engine" {} \; 2>/dev/null | head -1 | sed 's|/.claude-plugin/plugin.json||')
+echo "Found plugin at: $PLUGIN_SOURCE"
 ```
 
-If the above doesn't find it, ask the user: "Where is the claude-harness-engine plugin cloned? I need the path to copy scaffold files."
+If `$PLUGIN_SOURCE` is empty, ask the user: "Where is the claude-harness-engine repo cloned? I need the path to copy scaffold files." Then set `PLUGIN_SOURCE=/path/they/give/.claude`.
 
 Once you have the source path, create `.claude/` in the target project and copy:
 
