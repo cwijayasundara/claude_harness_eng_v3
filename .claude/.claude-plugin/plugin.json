@@ -1,5 +1,8 @@
 {
   "name": "claude-harness-engine",
   "version": "1.0.0",
-  "description": "GAN-inspired harness for autonomous long-running application development with Karpathy ratcheting, agent teams, and layered evaluation."
+  "description": "GAN-inspired harness for autonomous long-running application development with Karpathy ratcheting, agent teams, and layered evaluation.",
+  "skills": "./.claude/skills/",
+  "agents": "./.claude/agents/",
+  "commands": "./.claude/commands/"
 }

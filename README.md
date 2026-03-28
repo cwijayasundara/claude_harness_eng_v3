@@ -16,23 +16,49 @@ A Claude Code plugin scaffold that implements best practices from [Anthropic](ht
 - **Self-healing** — 10 error categories with targeted fixes before reverting
 - **4 execution modes** — Full ($100-300), Lean ($30-80), Solo ($5-15), Turbo ($30-50)
 
+## Installation
+
+### Option 1: Per-session (CLI flag)
+
+```bash
+# Clone the harness
+git clone <repo-url> ~/claude-harness-engine
+
+# Start Claude Code with the plugin loaded
+claude --plugin-dir ~/claude-harness-engine/.claude
+```
+
+### Option 2: Permanent (user settings)
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "local-harness": {
+      "source": "directory",
+      "path": "~/claude-harness-engine/.claude"
+    }
+  },
+  "enabledPlugins": {
+    "claude-harness-engine@local-harness": true
+  }
+}
+```
+
+Then just run `claude` from any directory — the harness skills are always available.
+
 ## Quick Start
 
 ```bash
-# 1. Clone the harness
-git clone <repo-url> ~/claude-harness-engine
-
-# 2. Start Claude Code with the harness as a plugin
-claude --plugin-dir ~/claude-harness-engine/.claude
-
-# 3. Create and enter your project directory
+# 1. Navigate to (or create) your project directory
 mkdir my-app && cd my-app
 
-# 4. Scaffold the project
-/claude-harness-engine:scaffold
+# 2. Scaffold the project
+/scaffold
 # Choose your stack, project type, and verification mode
 
-# 5. Run the full pipeline
+# 3. Run the full pipeline
 /build
 # Phases 1-3 (BRD, spec, design) require your approval
 # Phases 4-8 run autonomously via /auto
