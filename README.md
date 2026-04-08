@@ -140,8 +140,11 @@ The scaffold configures these complementary plugins in `.claude/settings.json`:
 | `commit-commands` | `/commit`, `/commit-push-pr` git workflows | No |
 | `security-guidance` | Real-time XSS/eval/unsafe-code detection | No |
 | `pr-review-toolkit` | Specialized PR review agents | No |
+| `frontend-design` | Aesthetic-direction skill invoked by `ui-designer` and frontend teammates (scoring still owned by `design-critic`) | No |
+| `context7` | Up-to-date library/docs lookup MCP | No |
+| `code-simplifier` | `/simplify` skill for in-session cleanup during `/refactor` | No |
 
-Plugins that conflict with harness functionality (`feature-dev`, `frontend-design`, `hookify`) are explicitly excluded by `/scaffold`.
+Plugins that conflict with harness functionality (`feature-dev`, `hookify`) are explicitly excluded by `/scaffold`.
 
 ## Requirements
 

@@ -111,6 +111,7 @@ Execute teammates in phases from the micro-DAG:
 - Quality principles (from `.claude/skills/code-gen/SKILL.md`)
 - Interface contracts from upstream teammates (Phase 2+ only)
 - If the story involves an external API: include `.claude/skills/code-gen/references/api-integration-patterns.md`
+- **If the story has `layer: frontend`:** include `specs/design/mockups/aesthetic-direction.md` and instruct the teammate to invoke the `frontend-design` skill before writing JSX/CSS. Production code must honor the same aesthetic direction the mockup established — the `design-critic` will re-score against it.
 
 Max 5 concurrent teammates per phase. If a phase has >5 stories, batch in groups of 5.
 

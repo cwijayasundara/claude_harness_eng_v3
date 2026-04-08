@@ -29,7 +29,10 @@ Ask the user these questions (one at a time):
    - `commit-commands` — `/commit`, `/commit-push-pr` git workflows
    - `security-guidance` — Real-time security pattern checking on edits
    - `pr-review-toolkit` — Specialized PR review agents (comments, tests, errors, types)
-   - A) Yes, install all four (recommended)
+   - `frontend-design` — Aesthetic direction skill (used by `ui-designer` + frontend teammates; does NOT replace `design-critic`)
+   - `context7` — Up-to-date library/docs lookup MCP
+   - `code-simplifier` — `/simplify` skill for in-session cleanup during `/refactor`
+   - A) Yes, install all seven (recommended)
    - B) Let me pick which ones
    - C) No, skip official plugins
 
@@ -149,14 +152,17 @@ cp $PLUGIN_SOURCE/settings.json .claude/settings.json
 
 After copying settings.json, add the `enabledPlugins` block based on the user's answer:
 
-**If Yes (all four) or selected plugins:**
+**If Yes (all seven) or selected plugins:**
 Add to the project's `.claude/settings.json`:
 ```json
 "enabledPlugins": {
   "code-review@claude-plugins-official": true,
   "commit-commands@claude-plugins-official": true,
   "security-guidance@claude-plugins-official": true,
-  "pr-review-toolkit@claude-plugins-official": true
+  "pr-review-toolkit@claude-plugins-official": true,
+  "frontend-design@claude-plugins-official": true,
+  "context7@claude-plugins-official": true,
+  "code-simplifier@claude-plugins-official": true
 }
 ```
 
@@ -169,10 +175,12 @@ These plugins are complementary to the harness and do not conflict:
 - `commit-commands` — git workflows (our harness manages commits in `/auto`, but manual commits need this)
 - `security-guidance` — real-time edit-time security patterns (XSS, eval, unsafe HTML) that complement our `detect-secrets` hook
 - `pr-review-toolkit` — specialized PR agents for after the harness finishes building
+- `frontend-design` — aesthetic-direction skill. Invoked by `ui-designer` during `/design` and by frontend teammates during `/implement` to avoid raw-Tailwind-default UI. The `design-critic` GAN loop still owns scoring and iteration control — `frontend-design` does not replace it.
+- `context7` — up-to-date library/docs lookup MCP. Useful when teammates need current API references for third-party libraries.
+- `code-simplifier` — in-session `/simplify` skill used during `/refactor` for reuse, quality, and efficiency cleanup.
 
 **Do NOT install** these official plugins (they conflict with harness functionality):
 - `feature-dev` — competes with our `/brd` -> `/spec` -> `/design` -> `/implement` pipeline
-- `frontend-design` — competes with our `ui-designer` + `design-critic` GAN loop
 - `hookify` — dynamically generated hooks could interfere with our purpose-built hooks
 
 ## Step 4: Create Output Directories
