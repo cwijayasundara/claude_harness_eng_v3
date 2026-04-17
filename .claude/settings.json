@@ -41,6 +41,18 @@
     ]
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/enforce-length-pre.js",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
@@ -84,6 +96,11 @@
             "type": "command",
             "command": "node .claude/hooks/check-file-length.js",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "node .claude/hooks/track-writes.js",
+            "timeout": 5000
           }
         ]
       },
@@ -99,6 +116,17 @@
             "type": "command",
             "command": "node .claude/hooks/sprint-contract-gate.js",
             "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/require-review.js",
+            "timeout": 10000
           }
         ]
       }

@@ -8,8 +8,13 @@ const path = require('path');
 const WARN_LIMIT = 200;
 const HARD_LIMIT = 300;
 
-// Directories to skip (any segment in the path)
-const SKIP_DIRS = new Set(['test', 'tests', '__tests__', 'migrations', 'config']);
+const TRACKED_EXTS = new Set([
+  '.py', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
+  '.vue', '.svelte', '.go', '.rs', '.java', '.kt', '.rb',
+]);
+
+// Auto-generated / vendored paths only — tests and config are NOT exempt from SRP
+const SKIP_DIRS = new Set(['migrations', 'node_modules', 'dist', 'build', '.next']);
 
 function shouldSkip(filePath) {
   const normalized = filePath.replace(/\\/g, '/');
@@ -38,10 +43,7 @@ try {
   }
 
   const ext = path.extname(filePath).toLowerCase();
-  const isPython = ext === '.py';
-  const isTypeScript = ext === '.ts' || ext === '.tsx';
-
-  if (!isPython && !isTypeScript) {
+  if (!TRACKED_EXTS.has(ext)) {
     process.exit(0);
   }
 

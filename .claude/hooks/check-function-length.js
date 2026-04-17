@@ -5,7 +5,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const MAX_LINES = 50;
+const WARN_LINES = 50;
+const HARD_LIMIT = 80;
 
 // Get leading whitespace length (spaces; tabs count as 1)
 function indentLen(line) {
@@ -17,8 +18,14 @@ function indentLen(line) {
   return count;
 }
 
+function classify(length) {
+  if (length > HARD_LIMIT) return 'block';
+  if (length > WARN_LINES) return 'warn';
+  return null;
+}
+
 function checkPython(lines, filePath) {
-  const warnings = [];
+  const findings = [];
   const funcDef = /^(\s*)(async\s+)?def\s+(\w+)\s*\(/;
   const funcStack = []; // { name, startLine, indent }
 
@@ -30,56 +37,42 @@ function checkPython(lines, filePath) {
       const indent = indentLen(line);
       const name = match[3];
 
-      // Pop any functions whose indent >= current (they ended before this line)
       while (funcStack.length > 0 && funcStack[funcStack.length - 1].indent >= indent) {
         const ended = funcStack.pop();
-        const length = i - ended.startLine; // lines from def to just before current
-        if (length > MAX_LINES) {
-          warnings.push(
-            `WARNING: Function ${ended.name} in ${filePath}:${ended.startLine + 1} is ${length} lines (max ${MAX_LINES}).\nFix: Decompose into named sub-functions. Each should be testable in isolation.`
-          );
-        }
+        const length = i - ended.startLine;
+        const level = classify(length);
+        if (level) findings.push({ level, name: ended.name, filePath, startLine: ended.startLine, length });
       }
 
       funcStack.push({ name, startLine: i, indent });
     }
   }
 
-  // Close remaining functions at EOF
   const totalLines = lines.length;
   while (funcStack.length > 0) {
     const ended = funcStack.pop();
     const length = totalLines - ended.startLine;
-    if (length > MAX_LINES) {
-      warnings.push(
-        `WARNING: Function ${ended.name} in ${filePath}:${ended.startLine + 1} is ${length} lines (max ${MAX_LINES}).`
-      );
-    }
+    const level = classify(length);
+    if (level) findings.push({ level, name: ended.name, filePath, startLine: ended.startLine, length });
   }
 
-  return warnings;
+  return findings;
 }
 
-function checkTypeScript(lines, filePath) {
-  const warnings = [];
-  // Named function declarations: function foo(
+function checkBraceLang(lines, filePath) {
+  const findings = [];
   const namedFuncRe = /\bfunction\s+(\w+)\s*[(<]/;
-  // Arrow functions assigned to const: const foo = (  or  const foo = async (
   const arrowFuncRe = /\bconst\s+(\w+)\s*=\s*(async\s*)?\(/;
 
-  const funcStack = []; // { name, startLine, braceDepth }
+  const funcStack = [];
   let braceDepth = 0;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-
-    // Check for function start before counting braces on this line
     const namedMatch = line.match(namedFuncRe);
     const arrowMatch = line.match(arrowFuncRe);
-
     const funcName = (namedMatch && namedMatch[1]) || (arrowMatch && arrowMatch[1]) || null;
 
-    // Count braces on this line
     let openCount = 0;
     let closeCount = 0;
     for (const ch of line) {
@@ -88,43 +81,33 @@ function checkTypeScript(lines, filePath) {
     }
 
     if (funcName) {
-      // Record entry at the brace depth AFTER opens on this line
       funcStack.push({ name: funcName, startLine: i, braceDepth: braceDepth + openCount });
     }
 
     braceDepth += openCount - closeCount;
 
-    // Pop functions whose body braceDepth has been closed
     while (funcStack.length > 0) {
       const top = funcStack[funcStack.length - 1];
-      // The function body started at top.braceDepth; it ends when braceDepth drops below that
       if (braceDepth < top.braceDepth) {
         const ended = funcStack.pop();
         const length = i - ended.startLine + 1;
-        if (length > MAX_LINES) {
-          warnings.push(
-            `WARNING: Function ${ended.name} in ${filePath}:${ended.startLine + 1} is ${length} lines (max ${MAX_LINES}).\nFix: Decompose into named sub-functions. Each should be testable in isolation.`
-          );
-        }
+        const level = classify(length);
+        if (level) findings.push({ level, name: ended.name, filePath, startLine: ended.startLine, length });
       } else {
         break;
       }
     }
   }
 
-  // Close remaining at EOF
   const totalLines = lines.length;
   while (funcStack.length > 0) {
     const ended = funcStack.pop();
     const length = totalLines - ended.startLine;
-    if (length > MAX_LINES) {
-      warnings.push(
-        `WARNING: Function ${ended.name} in ${filePath}:${ended.startLine + 1} is ${length} lines (max ${MAX_LINES}).`
-      );
-    }
+    const level = classify(length);
+    if (level) findings.push({ level, name: ended.name, filePath, startLine: ended.startLine, length });
   }
 
-  return warnings;
+  return findings;
 }
 
 try {
@@ -137,9 +120,9 @@ try {
 
   const ext = path.extname(filePath).toLowerCase();
   const isPython = ext === '.py';
-  const isTypeScript = ext === '.ts' || ext === '.tsx';
+  const isBraceLang = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'].includes(ext);
 
-  if (!isPython && !isTypeScript) {
+  if (!isPython && !isBraceLang) {
     process.exit(0);
   }
 
@@ -151,17 +134,19 @@ try {
   }
 
   const lines = content.split('\n');
-  let warnings = [];
+  const findings = isPython ? checkPython(lines, filePath) : checkBraceLang(lines, filePath);
 
-  if (isPython) {
-    warnings = checkPython(lines, filePath);
-  } else {
-    warnings = checkTypeScript(lines, filePath);
+  let hasBlock = false;
+  for (const f of findings) {
+    const label = f.level === 'block' ? 'BLOCKED' : 'WARNING';
+    const limit = f.level === 'block' ? HARD_LIMIT : WARN_LINES;
+    process.stdout.write(
+      `${label}: Function ${f.name} in ${f.filePath}:${f.startLine + 1} is ${f.length} lines (limit ${limit}).\nFix: Decompose into named sub-functions. Each should be testable in isolation.\n`
+    );
+    if (f.level === 'block') hasBlock = true;
   }
 
-  for (const w of warnings) {
-    process.stdout.write(w + '\n');
-  }
+  if (hasBlock) process.exit(2);
 } catch (_) {
   // Silent exit — stderr output triggers "hook error" in Claude Code
 }
