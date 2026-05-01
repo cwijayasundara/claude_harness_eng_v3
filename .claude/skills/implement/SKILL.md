@@ -29,6 +29,7 @@ Before running `/implement`, verify:
 - `specs/stories/dependency-graph.md` exists and lists groups with story assignments.
 - `specs/design/component-map.md` exists and maps each story to the files it owns.
 - All stories in the target group have acceptance criteria written.
+- All stories in the target group are marked `Readiness: ready`.
 - All upstream groups are already implemented and passing evaluation.
 
 If any prerequisite is missing, stop and report what is absent. Do not proceed with partial context.
@@ -37,13 +38,32 @@ If any prerequisite is missing, stop and report what is absent. Do not proceed w
 
 ## Execution Steps
 
+### Step -1 — Load Brownfield Constraints
+
+If `specs/brownfield/` exists, read `architecture-map.md`, `test-map.md`, `risk-map.md`, and `change-strategy.md` before planning. Treat these as implementation constraints:
+
+- Preserve existing public interfaces unless the story explicitly changes them.
+- Reuse established modules, framework patterns, and test entry points.
+- Escalate if the target path is marked high-risk or requires human approval.
+
 ### Step 0 — Write Implementation Plan with Superpowers
 
 Before loading code or spawning agents, invoke `superpowers:writing-plans` to produce a structured implementation plan for this group. The plan identifies task decomposition, dependencies, and risk areas. This feeds into the teammate spawn prompts and prevents ad-hoc implementation.
 
+If story metadata, component ownership, or API/data contracts conflict, invoke `.claude/skills/clarify/SKILL.md` before planning implementation. Keep clarification bounded:
+- Ask only questions that block implementation or could cause rework.
+- Stop at 10 questions by default.
+- Continue to 15 only if the user explicitly asks.
+- If the uncertainty means a story is not implementable, mark it `needs_breakdown` and stop instead of guessing.
+
 ### Step 1 — Load Quality Principles
 
-Read `.claude/skills/code-gen/SKILL.md` in full. These six principles (small modules, static typing, functions under 50 lines, explicit error handling, no dead code, self-documenting names) apply to every line of code produced. Inject the full text into every teammate prompt.
+Read `.claude/skills/code-gen/SKILL.md` in full. Its core quality principles apply to every line of code produced. Inject the full text into every teammate prompt.
+
+Pay particular attention to deep modules and public-interface testing:
+- New modules must hide meaningful behavior behind a small interface.
+- Do not create pass-through abstractions to satisfy a pattern.
+- Tests must enter through public interfaces and survive internal refactors.
 
 ### Step 2 — Load Dependency Graph
 
@@ -52,7 +72,14 @@ Read `specs/stories/dependency-graph.md`. Identify:
 - Which groups must be complete before this group (upstream dependencies).
 - The total story count for this group.
 
-Abort if upstream groups are not yet evaluated as PASS.
+For every story in the group, read the corresponding `specs/stories/E{n}-S{n}.md` file and verify:
+- `Readiness: ready`
+- 3-6 acceptance criteria
+- `Layer` is present
+- `Group` matches the requested group
+- `Depends On` matches the dependency graph
+
+Abort if any story is marked `needs_breakdown`, lacks concrete acceptance criteria, or has metadata that conflicts with the dependency graph. Abort if upstream groups are not yet evaluated as PASS.
 
 ### Step 3 — Load Component Map
 
@@ -76,8 +103,11 @@ If the group contains **2 or more stories**, spawn a Claude Code agent team:
   - The story's acceptance criteria (full text).
   - The file ownership list from component-map.md for that story.
   - All learned rules from `.claude/state/learned-rules.md`.
-  - All six quality principles from `.claude/skills/code-gen/SKILL.md`.
+  - All core quality principles from `.claude/skills/code-gen/SKILL.md`.
+  - Brownfield constraints from `specs/brownfield/` when present.
   - Instruction to follow `superpowers:test-driven-development` — write failing tests before implementation code (red-green-refactor cycle).
+  - Instruction to use tracer-bullet TDD: one behavior test, minimum implementation, next behavior.
+  - Instruction to test observable behavior through public interfaces, not private helpers or internal mock calls.
   - Instruction to **message teammates** before modifying any shared type or interface file.
   - Instruction to **await plan approval** before writing any code (present the plan, wait for confirmation).
 
@@ -93,7 +123,7 @@ If the group contains exactly **1 story**, do not spawn a team. Execute the stor
 
 - Present a plan (files to create/modify, type definitions, test strategy).
 - Await approval.
-- Implement code, then write tests.
+- Write the failing test first, verify it fails for the expected reason, then implement the minimum code to pass.
 
 ### Step 7 — Validation Gate
 
@@ -122,8 +152,9 @@ If the reviewer still emits BLOCK findings after 3 retries, escalate to the user
 ## Rules
 
 - Every file produced must trace to a story in the current group. No story, no code.
-- Code is written first; tests are written after, against the public interface.
+- Tests are written first, against the public interface. No implementation code may be written until the failing test has been observed.
 - No speculative code ("might need later"). If it is not in an acceptance criterion, it does not exist.
+- No implementation for stories marked `needs_breakdown`. Break the story down and update `specs/stories/`, `dependency-graph.md`, `component-map.md`, and `features.json` first.
 - Teammates may not edit files outside their ownership assignment without coordinator approval.
 - Plan approval is mandatory before any teammate begins coding. Skipping this step is not a time-saver — it causes conflicts and rework.
 

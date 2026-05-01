@@ -1,4 +1,4 @@
-.claude/state/
+.claude/state/process-*.log
 node_modules/
 dist/
 build/

@@ -22,6 +22,8 @@ Provide either a plain description of the improvement or an existing story ID fr
 
 Improvements intentionally change behavior. This distinguishes them from `/refactor`, which must not change behavior. Every improvement is traceable to a story, has acceptance criteria, and requires tests to be updated or added.
 
+For tiny low-risk behavior changes that do not need a new product story, use `/vibe` instead. If the change introduces a new user workflow, public API behavior, persistence behavior, or acceptance criteria that product stakeholders would care about, stay in `/improve`.
+
 ---
 
 ## Steps
@@ -44,6 +46,7 @@ Do not proceed to implementation until acceptance criteria are written and confi
 
 Read the current codebase to understand what is affected:
 
+- **Brownfield map:** if `specs/brownfield/` exists, read `codebase-map.md`, `architecture-map.md`, `test-map.md`, `risk-map.md`, and `change-strategy.md` before assessing impact. If this is a non-trivial existing codebase and the brownfield map is missing, recommend `/brownfield` unless the change qualifies for `/vibe`.
 - **Affected files:** which source files implement the functionality being changed?
 - **Affected API contracts:** does this change any request/response shape, endpoint signature, or event payload?
 - **Existing test coverage:** run the current test suite. Record which tests cover the affected files. These are the tests that must continue to pass (with updates if behavior changes intentionally).

@@ -12,6 +12,11 @@ A Claude Code plugin scaffold that implements best practices from [Anthropic](ht
 - **Session chaining** — Builds span hours across multiple context windows
 - **Three-layer evaluation** — API tests + Playwright browser interaction + Vision scoring
 - **Sprint contracts** — Generator and evaluator negotiate "done" criteria before coding
+- **Bounded clarification** — Load-bearing questions only, with a 10-question default and 15-question hard cap
+- **Controlled vibe coding** — Small low-risk changes use a micro-contract and targeted verification instead of full SDLC ceremony
+- **Brownfield discovery** — Existing repos get factual architecture, test, risk, and change-strategy maps before broad edits
+- **Deep-module bias** — Prefer small public interfaces with meaningful hidden behavior; avoid pass-through abstractions
+- **Public-interface testing** — Tests verify observable behavior, not private helper calls or internal wiring
 - **TDD mandatory** — Tests first, 100% meaningful coverage target, 80% hard floor
 - **Self-healing** — 10 error categories with targeted fixes before reverting
 - **Superpowers integration** — Brainstorming, systematic debugging, TDD, and verification workflows at key pipeline stages
@@ -19,35 +24,84 @@ A Claude Code plugin scaffold that implements best practices from [Anthropic](ht
 
 ## Installation
 
-### Option 1: Per-session (CLI flag)
+### Option 1: Per-session plugin load
+
+Use this when developing the harness or bootstrapping one fresh project.
 
 ```bash
 # Clone the harness
 git clone https://github.com/cwijayasundara/claude_harness_eng_v1.git ~/claude-harness-engine
 
-# Start Claude Code with the plugin loaded
+# Start Claude Code from your target project with the harness plugin loaded
+cd /path/to/fresh-project
 claude --plugin-dir ~/claude-harness-engine/.claude
 ```
 
-### Option 2: Permanent (user settings)
+Then run:
 
-Add to `~/.claude/settings.json` (merge with existing settings):
-
-```json
-{
-  "extraKnownMarketplaces": {
-    "local-harness": {
-      "source": "directory",
-      "path": "~/claude-harness-engine/.claude"
-    }
-  },
-  "enabledPlugins": {
-    "claude-harness-engine@local-harness": true
-  }
-}
+```text
+/claude-harness-engine:scaffold
 ```
 
-Then just run `claude` from any directory — the harness skills are always available.
+The scaffold command copies the harness into the target repository as project-local Claude Code configuration: `.claude/`, `CLAUDE.md`, `design.md`, `init.sh`, state files, and output directories.
+
+### Option 2: Local marketplace install
+
+Use this when you want the harness available without passing `--plugin-dir` each time.
+
+Create a local marketplace with a copy of this repo's plugin root:
+
+```bash
+mkdir -p ~/claude-harness-marketplace/.claude-plugin ~/claude-harness-marketplace/plugins
+cp -R ~/claude-harness-engine/.claude ~/claude-harness-marketplace/plugins/claude-harness-engine
+
+cat > ~/claude-harness-marketplace/.claude-plugin/marketplace.json <<'EOF'
+{
+  "name": "local-harness",
+  "owner": {
+    "name": "Local"
+  },
+  "plugins": [
+    {
+      "name": "claude-harness-engine",
+      "source": "./plugins/claude-harness-engine",
+      "description": "Claude Harness Engine scaffold"
+    }
+  ]
+}
+EOF
+
+claude plugin marketplace add ~/claude-harness-marketplace
+claude plugin install claude-harness-engine@local-harness --scope user
+```
+
+For team use, install with `--scope project` from the target repo so Claude Code records the plugin in that repo's `.claude/settings.json`.
+
+When iterating on this scaffold locally, refresh the marketplace copy and update the installed plugin before smoke testing:
+
+```bash
+rm -rf ~/claude-harness-marketplace/plugins/claude-harness-engine
+cp -R ~/claude-harness-engine/.claude ~/claude-harness-marketplace/plugins/claude-harness-engine
+claude plugin update claude-harness-engine@local-harness --scope user
+```
+
+If `claude plugin list` shows multiple enabled `claude-harness-engine` entries from older experiments, uninstall or disable the stale ones before testing. Claude slash-command resolution uses the plugin name, so duplicate same-named installs can run an older `/claude-harness-engine:scaffold`.
+
+### Option 3: Manual project copy
+
+Use this only if you do not want to install or load the plugin:
+
+```bash
+SOURCE=~/claude-harness-engine
+cd /path/to/fresh-project
+
+cp -R "$SOURCE/.claude" .
+cp "$SOURCE/CLAUDE.md" .
+cp "$SOURCE/design.md" .
+cp "$SOURCE/README.md" .
+```
+
+After manual copy, start Claude Code from the fresh project with `claude`.
 
 ## Plugin Structure
 
@@ -61,10 +115,12 @@ The plugin is loaded from the `.claude/` directory. Claude Code auto-discovers c
   agents/                ← Auto-discovered agent definitions
   commands/              ← Auto-discovered commands
   hooks/                 ← Hook scripts
-  settings.json          ← Permissions and hook config
+  settings.json          ← Project scaffold settings copied into target repos
 ```
 
 **Important:** `plugin.json` should only contain metadata (`name`, `version`, `description`, `author`). Do NOT add explicit `skills`/`agents`/`commands` path fields — Claude Code discovers these automatically.
+
+**Settings note:** `.claude/settings.json` is intended as the settings file for scaffolded projects. It contains project-scoped permissions, official plugin enablement, and hooks that reference `.claude/hooks/*` after the scaffold has been copied into the target repo.
 
 ## Quick Start
 
@@ -72,17 +128,261 @@ The plugin is loaded from the `.claude/` directory. Claude Code auto-discovers c
 # 1. Navigate to (or create) your project directory
 mkdir my-app && cd my-app
 
-# 2. Scaffold the project (use plugin namespace)
+# 2. Start Claude Code with the harness plugin loaded
+claude --plugin-dir ~/claude-harness-engine/.claude
+```
+
+Then run inside Claude Code:
+
+```text
 /claude-harness-engine:scaffold
 # Choose your stack, project type, and verification mode
 
-# 3. Run the full pipeline
 /claude-harness-engine:build
 # Phases 1-3 (BRD, spec, design) require your approval
 # Phases 4-8 run autonomously via /auto
 ```
 
 > **Note:** When loaded as a plugin, all commands are namespaced: `/claude-harness-engine:<command>`. When working inside a scaffolded project (which has its own `.claude/skills/`), you can use the short form: `/scaffold`, `/build`, etc.
+
+## User Guide
+
+The scaffold supports two normal entry points:
+
+1. Start from a BRD or rough requirements.
+2. Start from already-written user stories.
+
+Both paths converge on the same implementation contract:
+
+```text
+specs/stories/
+  epics.md
+  dependency-graph.md
+  E1-S1.md
+  E1-S2.md
+  backlog-needs-breakdown.md   # optional
+specs/design/
+  component-map.md
+  api-contracts.md
+  data-models.md
+features.json                  # root-level feature tracking
+```
+
+### Path A: Start From a BRD
+
+Use this when you have a product brief, requirements document, or rough idea rather than ready stories.
+
+In your project repo:
+
+```bash
+mkdir -p specs/brd
+$EDITOR specs/brd/brd.md
+```
+
+Then run inside Claude Code:
+
+```text
+/brd specs/brd/brd.md
+```
+
+Review the BRD output. After you approve it:
+
+```text
+/spec specs/brd/brd.md
+```
+
+`/spec` decomposes the BRD into epics, ready stories, dependency groups, and root `features.json`. Review the story set carefully. After you approve it:
+
+```text
+/design
+```
+
+`/design` creates the API contracts, data models, folder structure, mockups, and `specs/design/component-map.md`. After you approve the design:
+
+```text
+/auto
+```
+
+or target one group:
+
+```text
+/auto --group A
+```
+
+### Path B: Start From Existing User Stories
+
+Use this when stories already exist in Linear, Jira, GitHub issues, a spreadsheet, or a product doc.
+
+Create one story file per story:
+
+```bash
+mkdir -p specs/stories
+cp .claude/templates/story.template.md specs/stories/E1-S1.md
+```
+
+Edit the file and fill in the metadata:
+
+```markdown
+# E1-S1 — User can reset password
+
+## Metadata
+- Epic: E1 — Authentication
+- Layer: API
+- Group: A
+- Depends On: []
+- Readiness: ready
+- Breakdown Reason: null
+
+## User Story
+As a registered user, I want to reset my password so that I can regain account access.
+
+## Description
+Users who forget their password can request a reset link, receive a single-use token, and set a new password.
+
+## Acceptance Criteria
+- POST /api/auth/password-reset accepts a registered email and returns 202.
+- The system stores a single-use reset token with a 30 minute expiry.
+- POST /api/auth/password-reset/confirm accepts a valid token and new password and returns 204.
+- Reusing a token returns 400.
+```
+
+Then run inside Claude Code:
+
+```text
+/spec specs/stories/E1-S1.md
+```
+
+`/spec` normalizes the story set, creates or updates `epics.md`, builds `dependency-graph.md`, and generates root `features.json`. After you approve the normalized stories, continue with:
+
+```text
+/design
+/auto --group A
+```
+
+### How to Set `Readiness`
+
+Set this directly in the story metadata:
+
+```markdown
+- Readiness: ready
+- Breakdown Reason: null
+```
+
+Use `Readiness: ready` only when all of these are true:
+
+- The story has one clear user goal.
+- One teammate can implement it without further product decomposition.
+- It has 3-6 concrete, testable acceptance criteria.
+- It has a known layer: `Types`, `Config`, `Repository`, `Service`, `API`, or `UI`.
+- Dependencies are explicit in `Depends On`.
+- It can be mapped to owned files in `specs/design/component-map.md`.
+
+Use `Readiness: needs_breakdown` when the story is too broad, vague, or combines multiple workflows:
+
+```markdown
+- Readiness: needs_breakdown
+- Breakdown Reason: Combines password reset request, email delivery, token validation, and audit logging; split into smaller stories.
+```
+
+Stories marked `needs_breakdown` are planning backlog. They must not appear in `dependency-graph.md`, `component-map.md`, or `features.json` until they are split into ready stories.
+
+### How Code Generation Handles Many Stories
+
+Stories are implemented by dependency group, not all at once.
+
+- Group `A`: foundational stories with no dependencies.
+- Group `B`: stories that depend only on Group `A`.
+- Group `C`: stories that depend on earlier groups.
+
+Run one group manually:
+
+```text
+/implement A
+```
+
+or let the harness choose the next unfinished group:
+
+```text
+/auto
+```
+
+If a group contains multiple ready stories, the generator assigns one teammate per story, up to five concurrent teammates. File ownership comes from `specs/design/component-map.md`; every generated file must trace back to a story and acceptance criterion.
+
+### Controlled Vibe Coding for Small Work
+
+Use `/vibe` when the full SDLC pipeline would be too heavy for a small, safe change.
+
+Good `/vibe` candidates:
+
+- Documentation edits
+- Test-only changes
+- Small UI copy or empty-state fixes
+- One-file bug fixes with a clear reproduction
+- Lint/tooling corrections
+- Minor validation or guard-clause fixes
+
+Do not use `/vibe` for:
+
+- New product workflows
+- New public API contracts
+- Database migrations
+- Auth, permissions, billing, privacy, or security-sensitive behavior
+- Changes likely to touch more than 3 source files
+- Ambiguous requirements
+
+Run inside Claude Code:
+
+```text
+/vibe "fix empty-state copy on invoices page"
+```
+
+The controlled vibe lane requires:
+
+1. A class: `CV0` docs/config, `CV1` tests/tooling, or `CV2` small behavior.
+2. A micro-contract appended to `.claude/state/vibe-log.md`.
+3. Narrow edits only.
+4. Targeted verification.
+5. Reviewer enforcement through the existing hooks.
+
+If the change grows past the micro-contract, stop and switch to `/improve`, `/fix-issue`, `/refactor`, or the full `/spec` → `/design` → `/auto` path.
+
+### Brownfield Discovery for Existing Codebases
+
+Use `/brownfield` before broad planning, refactoring, or feature work in an existing repo.
+
+Run inside Claude Code:
+
+```text
+/brownfield
+```
+
+or focus it:
+
+```text
+/brownfield "map auth and billing before adding team invites"
+```
+
+It writes:
+
+```text
+specs/brownfield/
+  codebase-map.md
+  architecture-map.md
+  test-map.md
+  risk-map.md
+  change-strategy.md
+CONTEXT.md                  # optional domain glossary
+```
+
+Use the output to choose the right lane:
+
+- `/vibe` for tiny safe edits
+- `/fix-issue` for bugs with reproduction
+- `/improve` for existing feature enhancements
+- `/refactor` for behavior-preserving structural work
+- `/spec` → `/design` → `/auto` for larger product changes
+
+The brownfield rule is simple: map what exists before asking Claude to change it. Do not let agents invent a replacement architecture unless a story/design explicitly approves it.
 
 ## How It Works
 
@@ -97,6 +397,9 @@ See `design.md` for full architecture reference (system diagram, agent roles, ho
 | Command | Purpose |
 |---------|---------|
 | `scaffold` | Initialize project with harness |
+| `clarify` | Bounded clarification for load-bearing product/design decisions |
+| `vibe` | Controlled small-change lane with micro-contract and targeted verification |
+| `brownfield` | Discover architecture, tests, risks, and change strategy for existing repos |
 | `brd` | Socratic interview -> BRD |
 | `spec` | BRD -> stories + dependency graph + features.json |
 | `design` | Architecture + schemas + mockups |
@@ -131,7 +434,7 @@ Superpowers is enabled automatically when scaffolding a project. The harness wor
 
 ## Plugins
 
-The scaffold configures these complementary plugins in `.claude/settings.json`:
+The scaffold configures these eight complementary plugins in `.claude/settings.json`:
 
 | Plugin | Purpose | Conflict? |
 |---|---|---|

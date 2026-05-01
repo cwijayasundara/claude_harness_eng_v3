@@ -175,6 +175,7 @@ After all checks complete, update `features.json` for every feature ID listed in
 - `failure_layer`: `null` if passing; otherwise one of `"api"`, `"playwright"`, `"design"`, `"unit_test"`, `"docker"`.
 
 Do not remove existing fields from `features.json`. Merge the updates into the existing structure.
+Only update evaluation state fields: `passes`, `last_evaluated`, `failure_reason`, and `failure_layer`. Preserve immutable feature identity/specification fields such as `id`, `category`, `story`, `group`, `description`, and `steps`.
 
 ---
 

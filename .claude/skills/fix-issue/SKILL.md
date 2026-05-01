@@ -21,6 +21,8 @@ Provide the GitHub issue number. The skill reads the issue, branches, reproduces
 
 This skill enforces a test-first bug fix workflow. The fix is not complete until a test that previously failed now passes, and the full suite still passes.
 
+For tiny, low-risk bugs with a clear reproduction and a likely 1-3 file fix, consider `/vibe` first. Use `/fix-issue` when the bug comes from a tracker issue, requires branching/PR workflow, has unclear root cause, touches risky behavior, or needs full regression discipline.
+
 ---
 
 ## Steps

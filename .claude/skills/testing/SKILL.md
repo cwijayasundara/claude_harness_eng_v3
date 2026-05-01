@@ -13,8 +13,11 @@ Reference skill for generator teammates. Read this before writing any test code.
 
 Tests run in three layers. Each layer has a distinct purpose and cost profile.
 
+Across all layers, tests verify behavior through public interfaces. They should describe what the system does, not how the internals happen to be arranged. A test that fails after a harmless internal refactor is usually testing the wrong thing.
+
 ### Layer 1 — Unit Tests
 - Test a single function or class in isolation.
+- Prefer exported functions, documented domain services, or public class methods. Avoid private helpers unless they are the real public interface of a small module.
 - No network, no database, no file system.
 - Mock only external boundaries (see code-gen SKILL.md for mock rules).
 - Fast: all unit tests must complete in under 10 seconds total.
@@ -60,6 +63,42 @@ Name boundary tests descriptively:
 - `"returns empty list when no items match filter"`
 - `"raises OrderNotFoundError when order_id does not exist"`
 - `"caps quantity at MAX_ITEMS_PER_ORDER when input exceeds limit"`
+
+---
+
+## Public Interface Testing
+
+Good tests enter through one of:
+
+- API route or handler
+- UI interaction
+- CLI command
+- exported module function
+- documented domain service method
+
+Avoid assertions on:
+
+- private helper calls
+- internal function names
+- mock call counts between internal collaborators
+- exact implementation ordering unless ordering is part of the contract
+- database rows directly when a public API response or domain service result is the behavior under test
+
+If the only way to test behavior is through fragile internals, flag an interface design problem before adding more tests.
+
+---
+
+## Tracer-Bullet TDD
+
+Do not batch all tests before implementation. Work in vertical slices:
+
+1. Write one failing behavior test.
+2. Verify it fails for the expected reason.
+3. Implement the minimum code.
+4. Verify it passes.
+5. Repeat for the next behavior.
+
+Each tracer bullet should be independently demoable or verifiable.
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: refactor
-description: Refactor existing code for quality, performance, or maintainability. Enforces six quality principles with ratchet gate.
+description: Refactor existing code for quality, performance, or maintainability. Enforces core quality principles with ratchet gate.
 argument-hint: "[file-or-module-path]"
 context: fork
 ---
@@ -14,13 +14,15 @@ context: fork
 /refactor src/repository/
 ```
 
-Provide a file path or directory. The skill analyzes the target against six quality principles, plans the changes, and executes them one principle at a time.
+Provide a file path or directory. The skill analyzes the target against core quality principles, plans the changes, and executes them one principle at a time.
 
 ---
 
 ## Overview
 
-Refactoring improves the internal structure of existing code without changing its observable behavior. No new features. No behavior changes. Every change must trace to a violation of one of the six quality principles.
+Refactoring improves the internal structure of existing code without changing its observable behavior. No new features. No behavior changes. Every change must trace to a violation of the core quality principles.
+
+For tiny cleanup that is obviously safe and local (for example one unused import, one typo in a comment, one lint-only change), use `/vibe` instead. Use `/refactor` when the change affects structure, module boundaries, tests, or multiple files.
 
 ---
 
@@ -28,9 +30,11 @@ Refactoring improves the internal structure of existing code without changing it
 
 ### Step 1 — Read Quality Principles
 
-Read `.claude/skills/code-gen/SKILL.md` in full. The six principles are the refactoring standard. Every change planned in Step 4 must cite a specific principle.
+Read `.claude/skills/code-gen/SKILL.md` in full. Its core quality principles are the refactoring standard. Every change planned in Step 4 must cite a specific principle.
 
 ### Step 2 — Analyze Current State
+
+If `specs/brownfield/` exists, read `architecture-map.md`, `test-map.md`, `risk-map.md`, and `change-strategy.md` before analyzing the target. If this is a non-trivial existing codebase and those maps do not exist, recommend `/brownfield` before broad refactoring.
 
 For each file in the target path:
 
@@ -45,19 +49,21 @@ Record findings in a structured list before proceeding.
 
 ### Step 3 — Identify Violations
 
-Map each finding from Step 2 to one of the six principles:
+Map each finding from Step 2 to one of the core quality principles:
 1. Small Modules — file exceeds 300 lines (block) or 200 lines (warning).
 2. Static Typing — `any`, missing annotations, untyped domain concepts.
 3. Functions Under 50 Lines — function body exceeds 50 lines.
 4. Explicit Error Handling — bare `except`, untyped catches, swallowed errors.
 5. No Dead Code — unused imports, commented-out code, unreachable branches.
 6. Self-Documenting — comments that restate what the code does, not why.
+7. Deep Modules — shallow pass-through modules, speculative interfaces, or abstractions with no real hidden behavior.
+8. Public Interface Testing — tests coupled to private helpers, internal call order, or mock interactions instead of observable behavior.
 
-Only violations of these six principles justify a change. Do not refactor code that complies with all six principles.
+Only violations of these principles justify a change. Do not refactor code that complies with the principles.
 
 ### Step 4 — Plan Changes with Superpowers
 
-Invoke `superpowers:writing-plans` to produce a structured refactoring plan. This ensures the plan is reviewed before execution and prevents ad-hoc changes that drift from the six principles.
+Invoke `superpowers:writing-plans` to produce a structured refactoring plan. This ensures the plan is reviewed before execution and prevents ad-hoc changes that drift from the quality principles.
 
 Produce a written plan before touching any code:
 
@@ -82,10 +88,12 @@ Apply changes for one principle across all affected files. Then run the test sui
 Order of execution:
 1. Static typing (lowest risk, foundation for other changes)
 2. Dead code removal
-3. Function decomposition
-4. Module splitting (if needed)
-5. Error handling
-6. Self-documenting cleanup
+3. Public-interface test repairs or characterization tests
+4. Function decomposition
+5. Deepening modules or removing shallow pass-through abstractions
+6. Module splitting (if needed)
+7. Error handling
+8. Self-documenting cleanup
 
 After each principle: run tests, run lint, run type checks. If anything breaks, fix it before moving to the next principle.
 
@@ -111,8 +119,9 @@ If BLOCK findings remain after 3 cycles, stop and report the unresolved issues. 
 - **Tests must pass after every change.** If a refactor breaks a test, fix the code — not the test.
 - **No behavior changes.** The refactored code must produce identical outputs for all existing inputs.
 - **No new features.** If you identify a missing capability, open a story and use `/improve`.
-- **Every change traces to a principle.** If you cannot cite which of the six principles a change addresses, do not make the change.
+- **Every change traces to a principle.** If you cannot cite which principle a change addresses, do not make the change.
 - **Update all call sites.** When renaming or moving a symbol, update every import and reference before committing.
+- **Do not add fake abstractions.** If an interface has one implementation and no clear external boundary or domain seam, keep the code concrete.
 
 ---
 

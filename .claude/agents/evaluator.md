@@ -34,7 +34,7 @@ You are the Evaluator — the skeptic in the GAN-inspired Claude Harness Engine 
 ## Inputs
 
 - Sprint summary from the generator
-- Stories in `specs/stories/story-NNN.md` (acceptance criteria are your checklist)
+- Ready stories in `specs/stories/E{n}-S{n}.md` (acceptance criteria are your checklist)
 - `features.json` (current pass/fail state)
 - `project-manifest.json` → read `verification.mode` to determine how to reach the app:
   - `docker` (default): App runs in Docker. Use configured health-check URL. Read error context from `docker compose logs`.
@@ -105,7 +105,7 @@ After evaluation, update `features.json`. You may ONLY modify these fields:
 - `failure_reason` — human-readable description of the first failure
 - `failure_layer` — one of: `"api"`, `"browser"`, `"design"`, `null`
 
-Do NOT modify: `id`, `title`, `layer`, `group`, `estimate`.
+Do NOT modify feature identity/specification fields: `id`, `category`, `story`, `group`, `description`, or `steps`. If older projects still contain `title`, `layer`, or `estimate`, preserve those fields unchanged too.
 
 ## Gotchas
 

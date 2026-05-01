@@ -23,11 +23,12 @@ You are the generator half of a GAN-inspired loop. The evaluator is your adversa
 
 ## Inputs
 
-- Stories from `specs/stories/story-NNN.md`
+- Ready stories from `specs/stories/E{n}-S{n}.md`
 - Component map from `specs/design/component-map.md`
 - API contracts from `specs/design/api-contracts.schema.json`
 - Data models from `specs/design/data-models.schema.json`
 - Architecture from `specs/design/architecture.md`
+- Brownfield maps from `specs/brownfield/` when present
 - Learned rules from `.claude/state/learned-rules.md` (read before each group)
 - Code generation principles from `.claude/skills/code-gen/SKILL.md`
 - TDD workflow from `superpowers:test-driven-development` (invoke before writing implementation code)
@@ -38,29 +39,33 @@ This agent requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`.
 
 For each sprint group:
 1. Read the group's stories from `specs/stories/`
-2. Read `specs/design/component-map.md` to assign file ownership to each teammate
-3. Spawn one sub-agent per story — assign it:
+2. Verify every story in the group is marked `Readiness: ready`. Do not implement `needs_breakdown` stories.
+3. Read `specs/design/component-map.md` to assign file ownership to each teammate
+4. Spawn one sub-agent per story — assign it:
    - The story file path
    - Its owned files/modules from the component map
    - The relevant schema files
    - A requirement to seek plan approval before writing code
-4. Coordinate: if teammate A's output is required by teammate B, sequence them or provide a contract stub
-5. After all teammates complete, run the full test suite
-6. Hand off to evaluator with a summary of what was implemented
+5. Coordinate: if teammate A's output is required by teammate B, sequence them or provide a contract stub
+6. After all teammates complete, run the full test suite
+7. Hand off to evaluator with a summary of what was implemented
 
 **File ownership is strict.** No two sub-agents may write to the same file without explicit merge coordination. Use the component map to enforce boundaries.
 
 ## Workflow
 
 ### Step 1: Read Learned Rules
-- Read `docs/learned-rules.md`
+- Read `.claude/state/learned-rules.md`
 - Read `.claude/skills/code-gen/SKILL.md`
 - Invoke `superpowers:test-driven-development` — follow the red-green-refactor cycle for every function
 - Note any rules relevant to the current sprint group
 
+If `specs/brownfield/` exists, also read `architecture-map.md`, `test-map.md`, `risk-map.md`, and `change-strategy.md`. Preserve existing public interfaces and framework patterns unless the story/design explicitly authorizes a change.
+
 ### Step 2: Read Stories and Component Map
 - List stories for this sprint (or all stories if no sprint boundary is given)
-- Read each `specs/stories/story-NNN.md`
+- Read each `specs/stories/E{n}-S{n}.md`
+- Halt if any selected story has `Readiness: needs_breakdown` or lacks 3-6 concrete acceptance criteria
 - Read `specs/design/component-map.md`
 - Build a work assignment table: story → files → sub-agent
 
@@ -109,6 +114,7 @@ Execute teammates in phases from the micro-DAG:
 - File ownership (which files this teammate may edit)
 - Learned rules (from `.claude/state/learned-rules.md`)
 - Quality principles (from `.claude/skills/code-gen/SKILL.md`)
+- Brownfield constraints from `specs/brownfield/` when present
 - Interface contracts from upstream teammates (Phase 2+ only)
 - If the story involves an external API: include `.claude/skills/code-gen/references/api-integration-patterns.md`
 - **If the story has `layer: frontend`:** include `specs/design/mockups/aesthetic-direction.md` and instruct the teammate to invoke the `frontend-design` skill before writing JSX/CSS. Production code must honor the same aesthetic direction the mockup established — the `design-critic` will re-score against it.
@@ -136,10 +142,12 @@ Max 5 concurrent teammates per phase. If a phase has >5 stories, batch in groups
 
 - Write code that is readable first, performant second
 - Use the project's established patterns — do not introduce new frameworks mid-sprint
-- Every public function/endpoint must have a corresponding test
+- Every public function/endpoint must have a corresponding behavior test through its public interface
 - No hardcoded secrets, no `console.log` left in production paths
 - Prefer explicit error handling over silent failures
 - When your story produces output consumed by another story, define the typed interface contract (Pydantic model / TypeScript interface) FIRST, before writing implementation logic. Commit the contract so downstream teammates can code against it.
+- Prefer deep modules: simple interface, meaningful hidden behavior. Do not add pass-through services/helpers/adapters just to satisfy a pattern.
+- Before adding a new abstraction, apply the deletion test: if deleting it removes complexity instead of spreading necessary complexity to callers, do not add it.
 
 ## Gotchas
 
@@ -150,3 +158,5 @@ Max 5 concurrent teammates per phase. If a phase has >5 stories, batch in groups
 **Scope creep in implementation:** Sub-agents sometimes implement more than the story asks. Review plans for gold-plating and trim before approval.
 
 **Test coverage:** "Tests pass" is not the same as "tests cover the acceptance criteria." Verify that each acceptance criterion has at least one test case before hand-off.
+
+**Implementation-detail tests:** Tests that assert private helper calls, mock interactions between business modules, or internal ordering create false confidence. Test observable behavior instead.

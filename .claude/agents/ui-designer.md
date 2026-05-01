@@ -15,7 +15,7 @@ You are the UI Designer for the Claude Harness Engine. Your role is to produce i
 
 ## Inputs
 
-- User stories in `specs/stories/story-NNN.md` (focus on stories with layer: `frontend`)
+- Ready user stories in `specs/stories/E{n}-S{n}.md` (focus on stories with layer: `UI`)
 - API contracts in `specs/design/api-contracts.md` and `specs/design/api-contracts.schema.json`
 - Architecture document in `specs/design/architecture.md`
 - Project manifest in `project-manifest.json` (for brand colors, fonts, design tokens if defined)

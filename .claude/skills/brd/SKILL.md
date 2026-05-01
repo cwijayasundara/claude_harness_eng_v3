@@ -29,6 +29,14 @@ This is the first gate in the SDLC pipeline. Before any code is written, the pla
 
 Before beginning the interview, invoke `superpowers:brainstorming` to explore the user's intent, requirements, and design space. This surfaces hidden assumptions and alternative framings before the structured Socratic interview locks in a direction. The brainstorming output feeds into the interview — it does not replace it.
 
+### Step 0.5 — Apply the Clarification Budget
+
+Before asking interview questions, invoke `.claude/skills/clarify/SKILL.md`. Use it to cap the total clarification burden:
+- Ask only load-bearing questions that affect requirements, scope, data, security, architecture, or story readiness.
+- Default to 10 total questions across the BRD interview.
+- Continue to 15 only if the user explicitly asks to keep going.
+- Capture low-risk assumptions in the BRD instead of asking about them.
+
 ### Step 1 — Analyze Existing Codebase (if any)
 
 Before beginning the interview, scan the working directory for existing code. Note:
@@ -37,11 +45,13 @@ Before beginning the interview, scan the working directory for existing code. No
 - Existing API surface
 - Any patterns or conventions already in use
 
+If this is an existing non-trivial codebase and `specs/brownfield/codebase-map.md` does not exist, recommend running `/brownfield` first. For small or urgent work, continue only after documenting the risk and the limited scope.
+
 This prevents proposing solutions that conflict with what is already built.
 
 ### Step 2 — Conduct the Five-Dimension Interview
 
-Work through each dimension in order. Do not skip dimensions. For each dimension, ask 2-4 targeted questions, then summarize what you heard and ask the human to confirm before proceeding.
+Work through each dimension in order. Do not skip dimensions. Ask only the highest-value questions within the clarification budget, then summarize what you heard and ask the human to confirm before proceeding. If a dimension is already answered by local context, document the assumption and move on.
 
 ---
 

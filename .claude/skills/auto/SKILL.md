@@ -34,6 +34,7 @@ Before `/auto` can run, the following must exist:
 - `.claude/program.md` — project constraints and conventions.
 - `features.json` — feature tracking file (created by `/spec`).
 - `specs/stories/dependency-graph.md` — group ordering and dependencies.
+- `specs/stories/epics.md` — epic index and story membership.
 - `claude-progress.txt` — session tracking file (created by `/build` phase 4).
 
 If any prerequisite is missing, stop and report what is absent. Do not proceed with partial context.
@@ -59,6 +60,7 @@ At the start of EVERY iteration — including the first — read these files in 
 3. **`claude-progress.txt`** — Read the LAST session block (the block after the final `=== Session` marker). Extract: `current_group`, `groups_completed`, `groups_remaining`, `last_commit`, `next_action`.
 4. **`features.json`** — Current pass/fail state for all features. Determines what work remains.
 5. **`specs/stories/dependency-graph.md`** — Pick the next unfinished group. A group is "unfinished" if any of its stories' features are not passing in `features.json`. Respect dependency ordering: do not start a group whose upstream dependencies have failing features.
+6. **Target group story files** — Verify every story in the selected group is marked `Readiness: ready`. If any story is `needs_breakdown`, stop and request a story decomposition pass before implementation.
 
 If `claude-progress.txt` indicates a `current_group` that is not yet complete, resume that group. Otherwise, select the next unfinished group in dependency order.
 
@@ -118,7 +120,8 @@ Max 5 concurrent teammates per phase. Batch in groups of 5 if more.
 ### Teammate Spawn Prompt
 
 Every teammate receives:
-- Story acceptance criteria (from `specs/stories/story-NNN.md`)
+- Story acceptance criteria (from `specs/stories/E{n}-S{n}.md`)
+- Story readiness metadata (must be `ready`; otherwise do not spawn)
 - File ownership (from `specs/design/component-map.md`)
 - Learned rules (from `.claude/state/learned-rules.md` — inject verbatim)
 - Quality principles (from `.claude/skills/code-gen/SKILL.md`)
@@ -181,6 +184,8 @@ Skip gates 4-6 (architecture, evaluator, design critic) for commits that ONLY co
 Detection: If `git diff --name-only` shows only .md files, or if the commit message starts with `fix: lint` or `docs:`, skip the evaluator. Gates 1-3 (tests + lint + coverage) always run.
 
 This prevents the expensive evaluator from blocking trivial housekeeping changes.
+
+For small work requested outside `/auto`, use `/vibe` instead of starting the autonomous loop. `/vibe` applies the same fast-lane idea at interactive scale: micro-contract, narrow edits, targeted checks, and reviewer enforcement without sprint contracts or full SDLC artifacts.
 
 ### Gate 1 — Unit Tests
 

@@ -95,7 +95,7 @@ Together: the GAN ensures honest verification at each step, and the ratchet ensu
 |                       STATE LAYER                                    |
 |  program.md | iteration-log.md | learned-rules.md | failures.md     |
 |  coverage-baseline | features.json | claude-progress.txt             |
-|  sprint-contracts/ | eval-scores.json                               |
+|  sprint-contracts/ | specs/reviews/eval-scores.json                 |
 +---------------------------------------------------------------------+
 ```
 
@@ -490,11 +490,12 @@ Complemented by official `security-guidance` plugin for real-time XSS/eval/unsaf
 | `iteration-log.md` | Append-only | Full history: stories, verdicts, coverage, commits |
 | `learned-rules.md` | Monotonic (never deleted) | Defensive rules extracted from repeated failures |
 | `failures.md` | Append-only | Raw failure data for pattern extraction |
+| `.claude/state/pending-reviews.jsonl` | Recreated/cleared by hooks | Files changed this turn that require reviewer agents |
 | `coverage-baseline.txt` | Ratcheted upward | Never drops; floor is 80% |
 | `features.json` | Updated per evaluation | Granular pass/fail with failure_layer and timestamps |
 | `claude-progress.txt` | Appended per session | Session chaining recovery context |
 | `sprint-contracts/` | One file per group | Negotiated done-criteria; immutable after negotiation |
-| `eval-scores.json` | Appended per critique | Design scores over time |
+| `specs/reviews/eval-scores.json` | Appended per critique | User-visible design scores over time |
 | `calibration-profile.json` | Edited by human/scaffold | Scoring weights, threshold, plateau detection config |
 
 ---

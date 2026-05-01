@@ -26,11 +26,23 @@ This is the third gate in the SDLC pipeline. Two agents run concurrently in a si
 
 `specs/stories/` must exist and contain story files. If it does not, halt and tell the human to run `/spec` first.
 
+Every story consumed by `/design` must have `Readiness: ready`. If any story is marked `needs_breakdown`, halt and ask the human to approve a breakdown pass before generating architecture artifacts.
+
 ---
 
 ## Step 0 — Brainstorm Architecture Direction
 
 Before spawning agents, invoke `superpowers:brainstorming` to explore architectural trade-offs, technology choices, and design alternatives. This prevents the planner from committing to the first viable architecture without considering alternatives. Feed the brainstorming output into the planner agent's prompt.
+
+## Step 0.5 — Clarify Load-Bearing Design Decisions
+
+Invoke `.claude/skills/clarify/SKILL.md` only for decisions that materially affect API contracts, data models, security/privacy, external integrations, deployment topology, or file ownership.
+
+Use the clarification budget:
+- Ask at most 10 questions by default.
+- Continue to 15 only if the user explicitly asks.
+- Prefer existing code, `CONTEXT.md`, ADRs, stories, and manifest data over asking.
+- Record assumptions in `system-design.md` or `api-contracts.md` when risk is low.
 
 ## Step 1 — Spawn Two Agents Concurrently
 
@@ -42,11 +54,12 @@ In a single message, invoke both agents using the Agent tool. Do not wait for th
 
 **Prompt:**
 
-> Read all files in specs/stories/. Design the full system architecture for this project.
+> Read all ready story files in specs/stories/ plus specs/stories/epics.md and specs/stories/dependency-graph.md. Ignore any story listed in specs/stories/backlog-needs-breakdown.md. Design the full system architecture for this project.
 >
 > Write the following files to specs/design/:
 >
 > 1. **system-design.md** — High-level architecture overview: components, data flows, infrastructure topology, key design decisions and rationale.
+>    For every major module, describe its public interface, invariants, error modes, and why it is deep enough to justify existing as a module. Avoid pass-through modules that only forward calls.
 >
 > 2. **api-contracts.md** — Every API endpoint in detail: method, path, request schema (headers, params, body), response schema (success and error shapes), authentication requirements, rate limits. Use a consistent format for each endpoint.
 >
@@ -58,7 +71,7 @@ In a single message, invoke both agents using the Agent tool. Do not wait for th
 >
 > 6. **folder-structure.md** — Full proposed directory tree for the implementation, with a one-line annotation for each directory explaining its purpose.
 >
-> 7. **component-map.md** — A table mapping every story ID (from specs/stories/) to the specific files that will be created or modified to implement it.
+> 7. **component-map.md** — A table mapping every ready story ID (from specs/stories/) to the specific files that will be created or modified to implement it. Include `Produces:` and `Consumes:` notes for cross-story interfaces, and identify the owning story for every shared file.
 >
 > 8. **deployment.md** — Deployment architecture: environments (dev/staging/prod), CI/CD pipeline steps, infrastructure-as-code approach, secrets management strategy, rollback procedure.
 
@@ -68,7 +81,7 @@ In a single message, invoke both agents using the Agent tool. Do not wait for th
 
 **Prompt:**
 
-> Read all files in specs/stories/ and specs/design/api-contracts.md (if it exists; wait or proceed with story context if not yet available).
+> Read all ready story files in specs/stories/ and specs/design/api-contracts.md (if it exists; wait or proceed with story context if not yet available).
 >
 > For every story with layer "UI", create a self-contained HTML mockup:
 >
@@ -140,5 +153,7 @@ After presenting all artifacts and validation results, ask: "Does this architect
 - **Missing deployment.md.** Builder agents need to know the target environment. This file is required, not optional.
 - **Mock data must match API contracts.** If a mockup shows a `user_name` field but the API contract defines `username`, the downstream evaluator will flag a mismatch.
 - **No folder structure means builder agents guess.** The `folder-structure.md` and `component-map.md` are the routing instructions for the build phase. Missing or vague entries cause agents to create files in wrong locations.
+- **Unready stories must not get a component map.** `needs_breakdown` stories are product-planning backlog, not implementation input.
+- **Ambiguous ownership creates merge conflicts.** Each file in `component-map.md` needs one owner. When multiple stories need a shared file, mark one story as owner and list the others under `Consumes:` or `Declares additions:`.
 - **Schema files must be valid JSON.** Run a syntax check on both `.schema.json` files before presenting for human review.
 - **Concurrent execution requires a single message.** Both Agent tool calls must appear in the same response. Do not run them sequentially.

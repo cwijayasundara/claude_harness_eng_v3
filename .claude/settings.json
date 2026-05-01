@@ -18,16 +18,22 @@
       "Bash(ruff:*)",
       "Bash(mypy:*)",
       "Bash(npm test:*)",
+      "Bash(npm ci:*)",
       "Bash(npm run lint:*)",
       "Bash(npm run typecheck:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm run build:*)",
       "Bash(npx playwright:*)",
       "Bash(npx tsc:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv run pytest:*)",
       "Bash(docker compose:*)",
       "Bash(curl localhost:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git branch:*)",
+      "Bash(git init:*)",
       "Bash(git checkout:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
@@ -35,6 +41,8 @@
       "Bash(gh issue:*)",
       "Bash(gh pr:*)",
       "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(chmod:*)",
       "Bash(grep:*)",
       "Bash(find:*)",
       "Bash(wc:*)"
@@ -43,7 +51,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -55,7 +63,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",

@@ -9,7 +9,7 @@ Reference skill for generator teammates. Read this before writing any code.
 
 ---
 
-## Six Quality Principles
+## Core Quality Principles
 
 ### 1. Small Modules — One File, One Responsibility
 - Each file must have a single, clearly named responsibility.
@@ -55,6 +55,19 @@ Reference skill for generator teammates. Read this before writing any code.
 - Types act as documentation — a well-typed function signature is its own doc.
 - Use comments only for non-obvious decisions (algorithm choice, regulatory constraints).
 - Avoid `// TODO` in submitted code — file a story instead.
+
+### 8. Deep Modules — Simple Interface, Useful Behavior
+- Prefer modules with small, stable interfaces that hide meaningful complexity.
+- A module interface includes its types, invariants, error modes, ordering requirements, and configuration — not just the function signature.
+- Apply the deletion test before adding a module: if deleting it removes complexity entirely, it was probably shallow ceremony; if deleting it spreads complexity across callers, it is earning its keep.
+- Do not create pass-through services, repositories, hooks, helpers, or adapters just to satisfy a pattern.
+- One implementation behind an interface is not proof an abstraction is needed. Introduce interfaces/adapters when there are two real implementations, a test boundary around an external dependency, or a clear domain seam.
+
+### 9. Public Interface as Test Surface
+- Tests should verify observable behavior through public interfaces: API endpoints, CLI commands, UI flows, exported module functions, or documented domain services.
+- Do not test private helpers, implementation details, internal call order, or mock interactions unless that is the public contract.
+- If a helper is complex enough to need direct tests, consider making it a named domain module with a clear public interface.
+- A good test should survive internal refactors when behavior is unchanged.
 
 ---
 
@@ -198,21 +211,27 @@ async def add_request_id(request: Request, call_next):
 
 **"Coverage isn't about bug prevention — it's about guaranteeing the agent has double-checked the behavior of every line of code it wrote."** — Steve Krenzel
 
-1. **Tests FIRST, then code (TDD):**
+1. **Tracer-bullet TDD: one behavior at a time.**
+   - Do not write all tests first, then all implementation.
+   - Write one failing behavior test through the public interface.
+   - Implement the minimum code to pass that test.
+   - Repeat for the next behavior.
+   - This prevents imagined tests for imagined architecture.
+2. **Tests FIRST, then code (TDD):**
    - Write a failing test that defines expected behavior
    - Run it — verify it fails for the right reason
    - Write the minimum code to make it pass
    - Run it — verify it passes
    - Refactor if needed, re-run tests
    - Commit
-2. **100% meaningful coverage** — every branch, every error path. At 100%, any uncovered line is an immediate signal of missing verification. The ratchet gate BLOCKS below 80%.
-3. **Only mock external boundaries:** databases, third-party APIs, file I/O, clocks.
-4. **Never mock business logic** — if you mock a service to test another service, you are hiding bugs.
-5. **Isolate tests from .env files:** When testing settings/config that uses pydantic-settings or dotenv, pass `_env_file=None` (pydantic) or mock `dotenv.load_dotenv` to prevent the developer's `.env` from leaking into tests. Tests must be self-contained — they must pass regardless of what's in the local `.env`.
-6. **Use async-compatible connection strings:** When using async frameworks (SQLAlchemy async, asyncpg), defaults must use the async driver scheme (e.g., `postgresql+asyncpg://` not `postgresql://`). The sync scheme will fail at runtime with a cryptic driver error.
-5. **Realistic test data** — use domain-representative values (real-looking emails, valid UUIDs, plausible amounts). Never `"foo"`, `123`, or `"test"`.
-6. Test names describe behavior: `"returns 404 when order does not exist"`, not `"test order"`.
-7. **Integration tests for multi-step flows:** When a route triggers a background task or async flow (e.g., POST creates a record then starts processing), write a test that calls the endpoint and asserts the FINAL state — not just that each unit works alone. Assert exact record counts: `assert db.query(Task).count() == 1` after one API call.
+3. **100% meaningful coverage** — every branch, every error path. At 100%, any uncovered line is an immediate signal of missing verification. The ratchet gate BLOCKS below 80%.
+4. **Only mock external boundaries:** databases, third-party APIs, file I/O, clocks, payment processors, queues.
+5. **Never mock business logic** — if you mock a service to test another service, you are hiding bugs and testing wiring instead of behavior.
+6. **Isolate tests from .env files:** When testing settings/config that uses pydantic-settings or dotenv, pass `_env_file=None` (pydantic) or mock `dotenv.load_dotenv` to prevent the developer's `.env` from leaking into tests. Tests must be self-contained — they must pass regardless of what's in the local `.env`.
+7. **Use async-compatible connection strings:** When using async frameworks (SQLAlchemy async, asyncpg), defaults must use the async driver scheme (e.g., `postgresql+asyncpg://` not `postgresql://`). The sync scheme will fail at runtime with a cryptic driver error.
+8. **Realistic test data** — use domain-representative values (real-looking emails, valid UUIDs, plausible amounts). Never `"foo"`, `123`, or `"test"`.
+9. Test names describe behavior: `"returns 404 when order does not exist"`, not `"test order"`.
+10. **Integration tests for multi-step flows:** When a route triggers a background task or async flow (e.g., POST creates a record then starts processing), write a test that calls the endpoint and asserts the FINAL state — not just that each unit works alone. Assert exact record counts: `assert db.query(Task).count() == 1` after one API call.
 
 ---
 

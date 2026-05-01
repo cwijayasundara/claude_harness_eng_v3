@@ -23,6 +23,8 @@ A GAN-inspired harness combining Karpathy ratcheting + Anthropic/OpenAI harness 
 | Command | Purpose |
 |---------|---------|
 | `/scaffold` | Initialize project with harness |
+| `/vibe` | Controlled small-change lane |
+| `/brownfield` | Map an existing codebase before broad edits |
 | `/brd` | Socratic interview -> BRD |
 | `/spec` | BRD -> stories + dependency graph + features.json |
 | `/design` | Architecture + schemas + mockups |
@@ -66,6 +68,14 @@ The harness integrates with the [Superpowers](https://github.com/obra/superpower
 
 These behavioral rules apply to all code generation — in agents, skills, and direct responses.
 
+### Controlled Vibe Coding
+
+Use `/vibe` for small, low-risk changes where the full SDLC pipeline would be disproportionate. `/vibe` still requires a micro-contract, narrow scope, targeted verification, and reviewer enforcement. Escalate to `/improve`, `/fix-issue`, `/refactor`, or the full pipeline for new workflows, public API changes, migrations, auth/security/privacy work, ambiguous requirements, or changes likely to touch more than 3 source files.
+
+### Brownfield Discovery
+
+Use `/brownfield` before broad planning, refactoring, or feature work in existing codebases. It creates factual architecture, test, risk, and change-strategy maps under `specs/brownfield/` so agents preserve existing contracts and choose the right lane. `/vibe` may still be used for tiny low-risk fixes, but it must respect any brownfield risk map already present.
+
 ### 1. Think Before Coding
 - State assumptions explicitly. If uncertain, ask — don't guess.
 - When a request is ambiguous, present multiple interpretations and let the user choose.
@@ -75,6 +85,7 @@ These behavioral rules apply to all code generation — in agents, skills, and d
 - Minimum code that solves the stated problem. Nothing speculative.
 - No unrequested features, single-use abstractions, premature flexibility, or speculative error handling.
 - The bar: would an experienced engineer consider this overcomplicated?
+- Avoid fake abstractions: a module should hide useful behavior behind a small interface, not just forward calls.
 
 ### 3. Surgical Changes
 - Modify only what the request requires. Don't "improve" adjacent code, comments, or formatting.
@@ -86,6 +97,7 @@ These behavioral rules apply to all code generation — in agents, skills, and d
 - Transform vague goals into verifiable success criteria before writing code.
 - "Add validation" → "Write tests for invalid inputs, then make them pass."
 - Plan multi-step work with clear checkpoints. Loop toward measurable outcomes.
+- Tests verify public behavior through API routes, UI flows, CLIs, or exported module interfaces. Do not couple tests to private helpers or internal call order.
 
 > These guidelines bias toward caution over speed. Success = fewer unnecessary diffs, simpler code on first attempt, clarifying questions before implementation.
 

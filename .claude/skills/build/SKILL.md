@@ -25,6 +25,12 @@ The `--mode` flag controls which ratchet gates `/auto` enforces. Default: `full`
 
 ## 8-Phase Pipeline
 
+### Phase 0 — Brownfield Discovery [EXISTING CODEBASES]
+
+If this is a non-trivial existing codebase and `specs/brownfield/codebase-map.md` does not exist, run `/brownfield` before Phase 1. Use the generated architecture, test, risk, and change-strategy maps as constraints for the BRD, stories, and design.
+
+Skip Phase 0 only for greenfield projects, documentation-only work, or tiny `/vibe`-eligible changes.
+
 ### Phase 1 — Business Requirements [HUMAN APPROVAL]
 
 Run `/brd` with the provided requirements document. Outputs are written to `specs/brd/`.
@@ -35,11 +41,13 @@ Do NOT proceed without a clear "yes" or "approved" from the user.
 
 ### Phase 2 — Story Specification [HUMAN APPROVAL]
 
-Run `/spec` using the approved BRD. Outputs are written to `specs/stories/` and `features.json`.
+Run `/spec` using the approved BRD. Outputs are written to `specs/stories/` and root `features.json`.
 
 **Stop and wait for explicit human approval before proceeding.** Present the story count, dependency groups, and feature list. Ask: "Approve stories to proceed to Phase 3?"
 
 Do NOT proceed without a clear "yes" or "approved" from the user.
+
+If the user already has product stories, `/spec` may normalize those existing stories instead of deriving them from the BRD. The output contract is still the same: `epics.md`, ready story files, `dependency-graph.md`, and root `features.json`. Stories marked `needs_breakdown` must be resolved before Phase 3.
 
 ### Phase 3 — Architecture Design [HUMAN APPROVAL]
 

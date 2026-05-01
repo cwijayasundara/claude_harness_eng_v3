@@ -25,6 +25,7 @@ Ask the user these questions (one at a time):
    - B) Local dev servers (app runs via npm/uvicorn/etc.)
    - C) Stub / mock server (no runnable backend — serverless or external-only)
 5. "Install complementary official Claude Code plugins?" (recommended: Yes)
+   - `superpowers` — Structured developer workflows used by the harness pipeline
    - `code-review` — Automated PR review with confidence scoring
    - `commit-commands` — `/commit`, `/commit-push-pr` git workflows
    - `security-guidance` — Real-time security pattern checking on edits
@@ -32,7 +33,7 @@ Ask the user these questions (one at a time):
    - `frontend-design` — Aesthetic direction skill (used by `ui-designer` + frontend teammates; does NOT replace `design-critic`)
    - `context7` — Up-to-date library/docs lookup MCP
    - `code-simplifier` — `/simplify` skill for in-session cleanup during `/refactor`
-   - A) Yes, install all seven (recommended)
+   - A) Yes, install all eight (recommended)
    - B) Let me pick which ones
    - C) No, skip official plugins
 
@@ -122,20 +123,43 @@ Preset mappings:
 
 ## Step 3: Copy Scaffold Files
 
-First, locate the plugin source directory by finding the harness plugin.json:
+First, locate the plugin source directory by finding the newest installed local-harness copy. Prefer the Claude plugin cache over broad filesystem search so stale clones do not shadow the active plugin.
 
 ```bash
-# Find the harness plugin by looking for its unique plugin.json
-PLUGIN_SOURCE=$(find ~/Documents ~/claude-harness-engine ~ -maxdepth 6 -name "plugin.json" -path "*/.claude-plugin/*" -exec grep -l "claude-harness-engine" {} \; 2>/dev/null | head -1 | sed 's|/.claude-plugin/plugin.json||')
+# Prefer the newest local marketplace cache for this plugin.
+PLUGIN_SOURCE=$(find ~/.claude/plugins/cache/local-harness/claude-harness-engine -maxdepth 3 -path "*/.claude-plugin/plugin.json" -print 2>/dev/null | sort -V | tail -1 | sed 's|/.claude-plugin/plugin.json||')
+
+# Fallback for --plugin-dir development sessions.
+if [ -z "$PLUGIN_SOURCE" ]; then
+  PLUGIN_SOURCE=$(find ~/claude-harness-engine/.claude ~/Documents/rnd_2026/claude_scaffold_research/claude_harness_eng_v3/.claude -maxdepth 3 -path "*/.claude-plugin/plugin.json" -exec grep -l '"name": "claude-harness-engine"' {} \; 2>/dev/null | head -1 | sed 's|/.claude-plugin/plugin.json||')
+fi
+
 echo "Found plugin at: $PLUGIN_SOURCE"
 ```
 
 If `$PLUGIN_SOURCE` is empty, ask the user: "Where is the claude-harness-engine repo cloned? I need the path to copy scaffold files." Then set `PLUGIN_SOURCE=/path/they/give/.claude`.
 
+Before copying, validate the source:
+
+```bash
+test -f "$PLUGIN_SOURCE/.claude-plugin/plugin.json"
+test -d "$PLUGIN_SOURCE/skills/brownfield"
+test -d "$PLUGIN_SOURCE/skills/vibe"
+test -f "$PLUGIN_SOURCE/templates/context.template.md"
+test -f "$PLUGIN_SOURCE/templates/story.template.md"
+SKILL_COUNT=$(find "$PLUGIN_SOURCE/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d ' ')
+TEMPLATE_COUNT=$(find "$PLUGIN_SOURCE/templates" -maxdepth 1 -type f | wc -l | tr -d ' ')
+test "$SKILL_COUNT" = "21"
+test "$TEMPLATE_COUNT" = "8"
+```
+
+If any validation command fails, stop and report: "The resolved plugin source is stale or incomplete; refresh the local marketplace and update the plugin before scaffolding."
+
 Once you have the source path, create `.claude/` in the target project and copy:
 
 ```bash
 mkdir -p .claude
+cp -r $PLUGIN_SOURCE/.claude-plugin/ .claude/.claude-plugin/
 cp -r $PLUGIN_SOURCE/agents/ .claude/agents/
 cp -r $PLUGIN_SOURCE/skills/ .claude/skills/
 cp -r $PLUGIN_SOURCE/hooks/ .claude/hooks/
@@ -152,10 +176,11 @@ cp $PLUGIN_SOURCE/settings.json .claude/settings.json
 
 After copying settings.json, add the `enabledPlugins` block based on the user's answer:
 
-**If Yes (all seven) or selected plugins:**
-Add to the project's `.claude/settings.json`:
+**If Yes (all eight) or selected plugins:**
+Merge the selected official plugins into the project's existing `.claude/settings.json` `enabledPlugins` object:
 ```json
 "enabledPlugins": {
+  "superpowers@claude-plugins-official": true,
   "code-review@claude-plugins-official": true,
   "commit-commands@claude-plugins-official": true,
   "security-guidance@claude-plugins-official": true,
@@ -166,11 +191,14 @@ Add to the project's `.claude/settings.json`:
 }
 ```
 
+Do not replace the whole `enabledPlugins` object if it already exists. Preserve existing project/plugin entries such as `claude-harness-engine@local-harness`; otherwise a project-scoped plugin install can be disabled by the scaffold copy.
+
 If the user chose "Let me pick," only include the plugins they selected.
 
 **If No:** Do not add `enabledPlugins` to settings.json.
 
 These plugins are complementary to the harness and do not conflict:
+- `superpowers` — structured workflows used by the harness pipeline for brainstorming, planning, TDD, debugging, and verification
 - `code-review` — PR review (our harness does sprint evaluation, not PR review)
 - `commit-commands` — git workflows (our harness manages commits in `/auto`, but manual commits need this)
 - `security-guidance` — real-time edit-time security patterns (XSS, eval, unsafe HTML) that complement our `detect-secrets` hook
@@ -186,7 +214,7 @@ These plugins are complementary to the harness and do not conflict:
 ## Step 4: Create Output Directories
 
 ```bash
-mkdir -p specs/brd specs/stories specs/design/mockups specs/design/amendments specs/reviews specs/test_artefacts sprint-contracts e2e
+mkdir -p specs/brd specs/stories specs/design/mockups specs/design/amendments specs/reviews specs/test_artefacts specs/brownfield sprint-contracts e2e
 ```
 
 ## Step 5: Generate CLAUDE.md
@@ -220,13 +248,16 @@ One-way dependencies only. See `.claude/architecture.md` for full rules.
 | Architecture rules | `.claude/architecture.md` |
 | Quality principles | `.claude/skills/code-gen/SKILL.md` |
 | Testing patterns | `.claude/skills/testing/SKILL.md` |
+| Brownfield discovery | `specs/brownfield/` and `.claude/skills/brownfield/SKILL.md` |
 | Evaluation rubric | `.claude/skills/evaluation/SKILL.md` |
 | Sprint contract format | `.claude/skills/evaluation/references/contract-schema.json` |
 | Playwright patterns | `.claude/skills/evaluation/references/playwright-patterns.md` |
 | Human control knobs | `.claude/program.md` |
+| Small work lane | `.claude/skills/vibe/SKILL.md` |
 | Session recovery | `claude-progress.txt` |
 | Feature tracking | `features.json` |
 | Learned rules | `.claude/state/learned-rules.md` |
+| Controlled vibe log | `.claude/state/vibe-log.md` |
 
 ## Pipeline Commands
 
@@ -236,6 +267,8 @@ One-way dependencies only. See `.claude/architecture.md` for full rules.
 | `/spec` | BRD → stories + features.json |
 | `/design` | Architecture + schemas + mockups |
 | `/build` | Full 8-phase pipeline |
+| `/vibe` | Controlled small-change lane |
+| `/brownfield` | Map an existing codebase before changing it |
 | `/auto` | Autonomous ratcheting loop |
 | `/implement` | Code gen with agent teams |
 | `/evaluate` | Run app, verify contract |
@@ -245,6 +278,8 @@ One-way dependencies only. See `.claude/architecture.md` for full rules.
 
 ## Code Style
 
+- For existing codebases, run `/brownfield` before broad planning or refactoring
+- Small low-risk fixes may use `/vibe` instead of the full SDLC pipeline; see `.claude/skills/vibe/SKILL.md`
 - TDD mandatory: test first, then implement
 - 100% meaningful coverage target, 80% floor
 - Functions < 50 lines, files < 300 lines
@@ -360,11 +395,13 @@ Planner   Generator  Evaluator  Test Eng  Security Rev
 | File                  | Purpose                                              |
 |-----------------------|------------------------------------------------------|
 | `features.json`       | Feature registry with status tracking                |
+| `specs/brownfield/`   | Existing-codebase maps for brownfield work           |
 | `claude-progress.txt` | Session progress and current pipeline position       |
 | `learned-rules.md`    | Accumulated rules from past failures (ratchet memory)|
+| `vibe-log.md`         | Micro-contract history for controlled small changes  |
+| `pending-reviews.jsonl` | Hook-created review ledger for files changed this turn |
 | `failures.md`         | Failure log for pattern analysis                     |
 | `iteration-log.md`    | Evaluator iteration history per feature              |
-| `eval-scores.json`    | Design scores per component per iteration            |
 | `coverage-baseline.txt` | Test coverage baseline for regression detection   |
 
 ## Sprint Contract Format
@@ -469,12 +506,15 @@ Print:
 
 Installed:
   7 agents      → .claude/agents/
-  17 skills     → .claude/skills/
+  21 skills     → .claude/skills/
   12 hooks      → .claude/hooks/
-  5 templates   → .claude/templates/
-  5 state files → .claude/state/
+  8 templates   → .claude/templates/
+  6 state files → .claude/state/
+  1 manifest    → .claude/.claude-plugin/plugin.json
 
 Next steps:
   1. Run /brd to create your Business Requirements Document
-  2. Or run /build to execute the full pipeline
+  2. For an existing codebase, run /brownfield first
+  3. Or run /build to execute the full pipeline
+  4. For tiny safe changes, use /vibe with a micro-contract
 ```
