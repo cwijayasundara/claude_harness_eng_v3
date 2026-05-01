@@ -1,4 +1,4 @@
-# Claude Harness Engine v1
+# Claude Harness Engine v3
 
 A Claude Code plugin scaffold for autonomous long-running application development.
 

@@ -1,8 +1,32 @@
-# Claude Harness Engine v1
+# Claude Harness Engine v3
 
 > GAN-inspired harness for autonomous long-running application development with Claude Code
 
 A Claude Code plugin scaffold that implements best practices from [Anthropic](https://www.anthropic.com/engineering/harness-design-long-running-apps) and [OpenAI](https://openai.com/index/harness-engineering/) harness engineering research. Combines Karpathy's autoresearch ratcheting with a Generator-Evaluator architecture, agent teams, session chaining, and three-layer verification.
+
+## Current Status
+
+Version: `1.1.4`
+
+This repo has been tested as a local Claude Code plugin and as a scaffolded project install.
+
+Latest smoke target:
+
+```text
+/Users/chamindawijayasundara/Documents/rnd_2026/claude_scaffold_research/claude_harness_eng_v3_test
+```
+
+Verified:
+
+- Plugin manifest validates with `claude plugin validate .claude`.
+- Scaffold target contains 7 agents, 21 skills, 15 hooks, 8 templates, and 6 seeded state files.
+- Scaffold copies `.claude/.claude-plugin/plugin.json`, so the scaffolded `.claude/` is also plugin-valid.
+- `.claude/settings.json`, `features.json`, `project-manifest.json`, and generated design schemas parse as JSON.
+- Hook JavaScript files pass `node --check`.
+- Simple SDLC smoke created BRD-derived stories, dependency graph, valid `features.json`, and minimal design contracts.
+- Brownfield smoke produced `codebase-map.md`, `architecture-map.md`, `test-map.md`, `risk-map.md`, and `change-strategy.md`.
+
+Known caveat: non-interactive `claude -p` scaffold runs can be interrupted by upstream API retries. The scaffold copy path is validated, but long runs may need a retry or completion from the copied scaffold instructions if the API terminates mid-run.
 
 ## Features
 
@@ -30,7 +54,7 @@ Use this when developing the harness or bootstrapping one fresh project.
 
 ```bash
 # Clone the harness
-git clone https://github.com/cwijayasundara/claude_harness_eng_v1.git ~/claude-harness-engine
+git clone https://github.com/cwijayasundara/claude_harness_eng_v3.git ~/claude-harness-engine
 
 # Start Claude Code from your target project with the harness plugin loaded
 cd /path/to/fresh-project
