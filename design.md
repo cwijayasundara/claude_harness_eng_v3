@@ -10,6 +10,7 @@ Based on:
 - [OpenAI: Harness Engineering](https://openai.com/index/harness-engineering/)
 - [Steve Krenzel: AI is Forcing Us to Write Good Code](https://bits.logic.inc/p/ai-is-forcing-us-to-write-good-code)
 - [Andrej Karpathy: Autoresearch Loop](https://x.com/karpathy) — monotonic ratchet pattern
+- [Martin Fowler: Legacy Modernization meets GenAI](https://martinfowler.com/articles/legacy-modernization-gen-ai.html) — graph-grounded comprehension and seam discovery
 
 ---
 
@@ -544,6 +545,109 @@ The harness handles **what** to build (SDLC pipeline, sprint contracts, ratchet 
 
 ---
 
+## 11.5 Graph-Grounded Brownfield Discovery
+
+Brownfield discovery is the entry point for every existing-codebase task. It produces structured, queryable artifacts the planner and generator agents can cite as evidence — replacing free-form `rg`/`find` narrative with a deterministic dependency graph and Fowler-style seam ranking.
+
+### Pipeline
+
+```
+/brownfield
+    │
+    ▼
+/code-map  →  graphify (skill) | hex-graph (MCP) | vendored Node.js scripts
+    │           (resolution order — first available wins)
+    ▼
+specs/brownfield/code-graph.json   ← AST + import + call edges + symbols
+    │
+    ├──> dependency-graph.md       ← Mermaid render (top-N hubs)
+    ├──> coupling-report.md        ← fan-in / fan-out / cycles / unstable hubs
+    │
+    ▼
+architecture-map.md, risk-map.md, change-strategy.md  ← cite graph evidence
+    │
+    ▼
+/seam-finder "<goal>"  →  seams-<slug>.md  ← ranked cut-points
+```
+
+### Vendored Extractor (zero npm deps)
+
+The fallback runs in pure Node stdlib via regex per language. All six languages get file + import + top-level-symbol fidelity. Python gets re-export resolution from `__init__.py` and `__all__`, plus a coarse call graph (`sym:` edges from `name(...)` call sites, filtered against keywords and known local symbols).
+
+| Language | Vendored | With graphify / hex-graph |
+|---|---|---|
+| Python | imports + classes + funcs + re-exports + call graph | full |
+| Node / TypeScript | imports + classes + funcs + top-level vars | full |
+| Java | imports + package + types | full |
+| C# | usings + namespace + types | full |
+| Go | imports + package + funcs + types | full |
+
+### Code Graph Schema
+
+```json
+{
+  "nodes": [{"id": "py:src/services/auth.py", "kind": "file",
+             "language": "python", "path": "src/services/auth.py",
+             "symbols": ["AuthService", "verify_token", "issue_token"]}],
+  "edges": [{"source": "py:src/api/routes.py",
+             "target": "py:src/services/auth.py",
+             "kind": "imports",
+             "evidence": "src/api/routes.py:7 from-import services.auth"}],
+  "metrics": {"files": 142, "edges": 318,
+              "external_imports": 833,
+              "cycles": [["py:a.py", "py:b.py"]],
+              "hubs": [{"id": "...", "fan_in": 18, "fan_out": 4,
+                        "instability": 0.18}]},
+  "meta": {"producer": "vendored | graphify | hex-graph",
+           "languages": {"python": 88, "typescript": 54},
+           "warnings": [], "generated_at": "..."}
+}
+```
+
+Edge kinds: `imports` (always), `calls` (Python only via vendored), `inherits` and `instantiates` (when graphify or hex-graph is the producer).
+
+### Seam Scoring (Fowler — *Uncovering Mainframe Seams*)
+
+`/seam-finder` reads `code-graph.json` plus a goal string and ranks file-level seams:
+
+| Component | Weight | Heuristic |
+|---|---|---|
+| Observable | 0.4 | path matches `routes/`, `controllers/`, `api/`, `endpoints/`, `resolvers/`, `cli/`, `commands/`, `queues/`, `events/`, `consumers/`, `producers/`, `webhooks/`, `workers/`, `jobs/`, `db/`, `repository/`, `models/`, `migrations/`, `entities/`, `services/`, `domain/`, `usecases/`, `workflows/`, `adapters/`, `gateway/`, `clients/`, `integrations/` (1.0 → 0.1 by category) |
+| Funnel | 0.4 | `(fan_in + fan_out) / max_funnel` — popular seams rank higher |
+| Asymmetry | 0.2 | `\|fan_in − fan_out\| / max(fan_in, fan_out)` — pure readers and pure writers score 1.0; balanced score 0.0 |
+| Goal bump | ×1.5 | applied when goal keywords match candidate's path or symbols |
+
+**Test/fixture exclusion** is on by default — paths under `tests/`, `__tests__/`, `spec/`, `*_test.*`, `*.spec.*`, `fixtures/`, `mocks/`, `examples/`, `samples/`, `seed_data/`, `test_data/` are filtered. Opt in with `--include-tests` / `--include-fixtures` (e.g. when refactoring the test suite itself).
+
+**Recommended actions** per score profile:
+
+| Profile | Action |
+|---|---|
+| High observable + high funnel | `extend` — add behaviour at the existing seam |
+| High observable + low funnel | `wrap` — adapter at the boundary |
+| Low observable + high funnel | `introduce-adapter` — extract a public seam first |
+| High asymmetry, pure reader/writer | `split` — replicate one side, rebuild the other |
+| All scores low | `avoid` — not a seam |
+
+Cycle members are flagged because their fan-in/fan-out is unreliable.
+
+### Agent Contract
+
+Planner and generator agents must **cite graph evidence** when justifying decisions in brownfield mode. "Module X depends on Y" claims reference an edge from `code-graph.json` (with `file:line` evidence). Hub identification, refactor target selection, and story sequencing all read from `coupling-report.md` and `seams-<slug>.md` rather than inventing relationships.
+
+Lane selection in `change-strategy.md`:
+
+- High fan-in + low instability → preserve, extend at existing seam (`/improve`)
+- High fan-in + high instability → unstable hub, refactor candidate (`/refactor`)
+- Cycle member → explicit human approval before structural change
+- Orphan file (fan_in == 0, not entrypoint) → flag as dead-code candidate
+
+### Performance
+
+Vendored Node scripts complete in **< 1s for repos under ~500 files**, **~5s for 5k files**. Memory footprint is the JSON graph (typically 1–10 MB). The graph is regenerated on demand — no long-lived index, no daemon, no caching layer.
+
+---
+
 ## 12. Pipeline Commands
 
 | Command | Purpose | Human Gate? | Superpowers |
@@ -558,6 +662,11 @@ The harness handles **what** to build (SDLC pipeline, sprint contracts, ratchet 
 | `/deploy` | Docker Compose + init.sh | No | — |
 | `/build` | Full 8-phase pipeline | Phases 1-3 | verification |
 | `/auto` | Autonomous ratcheting loop | No (reads program.md) | debugging, verification |
+| `/brownfield` | Map existing codebase before broad edits | No | — |
+| `/code-map` | Deterministic AST + dependency + Python call graph (6 langs) | No | — |
+| `/seam-finder` | Rank safe cut-points using Fowler scoring + goal-keyword bump | No | — |
+| `/vibe` | Controlled small-change lane with micro-contract | No | — |
+| `/clarify` | Bounded clarification gate (10 default / 15 hard cap) | Yes | — |
 | `/fix-issue` | GitHub issue workflow | No | systematic-debugging |
 | `/refactor` | Quality-driven refactoring | No | writing-plans |
 | `/improve` | Feature enhancement | No | — |

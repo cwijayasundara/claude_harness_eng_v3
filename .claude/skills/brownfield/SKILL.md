@@ -31,9 +31,12 @@ Write these files:
 | File | Purpose |
 |---|---|
 | `specs/brownfield/codebase-map.md` | Languages, frameworks, package managers, entry points, services, commands |
-| `specs/brownfield/architecture-map.md` | Modules, layers, data flow, public interfaces, external dependencies |
+| `specs/brownfield/code-graph.json` | Deterministic dependency graph (produced by `/code-map`) |
+| `specs/brownfield/dependency-graph.md` | Mermaid render of the file/module-level edges |
+| `specs/brownfield/coupling-report.md` | Fan-in / fan-out / cycles / unstable hubs |
+| `specs/brownfield/architecture-map.md` | Modules, layers, data flow, public interfaces, external dependencies — cites the graph |
 | `specs/brownfield/test-map.md` | Test commands, coverage signals, public interfaces covered/missing, slow/flaky tests |
-| `specs/brownfield/risk-map.md` | Sensitive areas, fragile zones, migrations, auth/security/billing/data risks |
+| `specs/brownfield/risk-map.md` | Sensitive areas, fragile zones, structural risks (cycles, hubs without tests), auth/security/billing/data risks |
 | `specs/brownfield/change-strategy.md` | Recommended lane for future work: `/vibe`, `/fix-issue`, `/improve`, `/refactor`, `/spec`, `/auto` |
 | `CONTEXT.md` | Optional domain glossary, created only when meaningful domain terms are discovered |
 
@@ -58,21 +61,40 @@ Use `rg`, `find`, package manifests, config files, and existing docs. Prefer pri
 
 ---
 
+## Step 1.5 — Build the Dependency Graph
+
+Run `/code-map` (or invoke its script directly) to produce a deterministic graph the rest of this skill cites as evidence:
+
+```bash
+node .claude/skills/code-map/scripts/build_graph.js \
+  --root . --out specs/brownfield/code-graph.json
+node .claude/skills/code-map/scripts/build_graph.js \
+  --render-mermaid specs/brownfield/code-graph.json \
+  --out specs/brownfield/dependency-graph.md
+node .claude/skills/code-map/scripts/build_graph.js \
+  --coupling-report specs/brownfield/code-graph.json \
+  --out specs/brownfield/coupling-report.md
+```
+
+If the `graphify` skill or `hex-graph` MCP server is available, prefer them and project the result into the same `code-graph.json` schema (see `.claude/skills/code-map/SKILL.md` § Resolution Order).
+
+If the graph comes back empty or with all warnings, stop and report. Do not invent architecture from filenames.
+
 ## Step 2 — Map Architecture
 
 Write `architecture-map.md` with:
 
-- Major modules and their responsibilities
-- Public interfaces for each major module
-- Data flow through the system
-- External integrations
+- Major modules and their responsibilities — cite specific edges from `code-graph.json`
+- Public interfaces for each major module — symbols list per file is in the graph
+- Data flow through the system — follow `imports` / `calls` chains
+- External integrations — `ext:*` targets in the graph
 - Persistence boundaries
 - Auth/session boundaries
-- Existing layering conventions
-- Deep modules worth preserving
-- Shallow/pass-through modules that may be refactor candidates
+- Existing layering conventions — confirm with directional fan-in/fan-out from the coupling report
+- Deep modules worth preserving — high fan-in, low instability
+- Shallow/pass-through modules that may be refactor candidates — high instability, no domain logic
 
-Do not redesign the system. Capture what exists.
+Every "module X depends on Y" claim must reference an edge from `code-graph.json` (file:line evidence). Do not redesign the system. Capture what exists.
 
 ---
 
@@ -95,14 +117,19 @@ If commands are obvious and safe, run lightweight discovery commands such as `np
 
 Write `risk-map.md` with:
 
+### Domain risks
 - Auth, permissions, privacy, billing, payment, and security-sensitive paths
 - Database migrations and irreversible data operations
 - External APIs and side-effecting integrations
 - Generated code or vendored code that should not be edited manually
-- Files with high churn or high coupling if visible from imports/callers
-- Areas where tests are weak or missing
 
-For each risk, include the evidence path.
+### Structural risks (read from `coupling-report.md`)
+- **Cycles** — files inside the SCC; refactors that cross a cycle boundary need explicit approval
+- **Hub modules without tests** — high fan-in files that lack a corresponding test target in `test-map.md`
+- **Unstable hubs** — fan_in ≥ 5 with instability ≥ 0.8 (heavy dependents, lots of outgoing churn)
+- **Orphan files** — fan_in == 0 and not an entrypoint (potential dead code)
+
+For each risk, include the evidence path or graph node id.
 
 ---
 

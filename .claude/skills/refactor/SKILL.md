@@ -36,6 +36,8 @@ Read `.claude/skills/code-gen/SKILL.md` in full. Its core quality principles are
 
 If `specs/brownfield/` exists, read `architecture-map.md`, `test-map.md`, `risk-map.md`, and `change-strategy.md` before analyzing the target. If this is a non-trivial existing codebase and those maps do not exist, recommend `/brownfield` before broad refactoring.
 
+If `specs/brownfield/code-graph.json` and `coupling-report.md` exist, use them to identify hub modules and unstable hubs in the target path before deciding what to refactor. For non-trivial structural refactors (splitting modules, extracting interfaces) also run `/seam-finder "<refactor goal>"` first to verify the cut-point you're considering is actually the highest-scoring seam.
+
 For each file in the target path:
 
 - **Architecture compliance:** does the file import from a layer above it? (see layering rules in `architecture/SKILL.md`)

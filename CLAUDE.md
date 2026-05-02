@@ -25,6 +25,8 @@ A GAN-inspired harness combining Karpathy ratcheting + Anthropic/OpenAI harness 
 | `/scaffold` | Initialize project with harness |
 | `/vibe` | Controlled small-change lane |
 | `/brownfield` | Map an existing codebase before broad edits |
+| `/code-map` | Build a deterministic dependency graph (Python, Node, TS, Java, C#, Go) |
+| `/seam-finder` | Rank seam candidates for a goal using the code graph |
 | `/brd` | Socratic interview -> BRD |
 | `/spec` | BRD -> stories + dependency graph + features.json |
 | `/design` | Architecture + schemas + mockups |

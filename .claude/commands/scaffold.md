@@ -37,6 +37,23 @@ Ask the user these questions (one at a time):
    - B) Let me pick which ones
    - C) No, skip official plugins
 
+6. "Install graphify for higher-fidelity brownfield code graphs? (optional)" — only meaningful for existing codebases
+   - `graphify` is a community user-scope skill (`safishamsi/graphify`) that produces a tree-sitter knowledge graph for 25 languages, including call-graph and inheritance edges.
+   - When installed, `/code-map` defers to it automatically and projects its output into our schema. Without it, the vendored Node.js scripts run instead (file + import + Python call graph fidelity, 6 languages).
+   - It is **not** a marketplace plugin — it installs via its own CLI to `~/.claude/skills/graphify/SKILL.md`, so it cannot go in `enabledPlugins`.
+   - A) Yes, print the install command
+   - B) No, skip (vendored scripts will be used)
+
+   If A) — print this exact block to the user and continue (do not run the commands yourself, the user runs them once outside the harness):
+
+   ```bash
+   # one-time, user-scope install
+   npm install -g @safishamsi/graphify   # or: brew install graphify
+   graphify install                      # writes ~/.claude/skills/graphify/SKILL.md
+   ```
+
+   After the user installs it, `/code-map` will detect and prefer it on every brownfield run.
+
 ## Step 2: Generate project-manifest.json
 
 Based on their answers, write `project-manifest.json` to the project root. Fill in:
@@ -149,7 +166,7 @@ test -f "$PLUGIN_SOURCE/templates/context.template.md"
 test -f "$PLUGIN_SOURCE/templates/story.template.md"
 SKILL_COUNT=$(find "$PLUGIN_SOURCE/skills" -mindepth 2 -maxdepth 2 -name SKILL.md | wc -l | tr -d ' ')
 TEMPLATE_COUNT=$(find "$PLUGIN_SOURCE/templates" -maxdepth 1 -type f | wc -l | tr -d ' ')
-test "$SKILL_COUNT" = "21"
+test "$SKILL_COUNT" = "23"
 test "$TEMPLATE_COUNT" = "8"
 ```
 
@@ -197,6 +214,21 @@ If the user chose "Let me pick," only include the plugins they selected.
 
 **If No:** Do not add `enabledPlugins` to settings.json.
 
+### Graphify (question 6) — user-scope skill, not a marketplace plugin
+
+If the user answered A) to question 6, **do not** modify `enabledPlugins` for graphify (it cannot be enabled there). Instead, append this exact installation reminder to the bottom of the Step 10 report so the user runs it once outside the harness:
+
+```
+Optional graphify install (higher-fidelity brownfield code graphs):
+  npm install -g @safishamsi/graphify   # or: brew install graphify
+  graphify install                      # writes ~/.claude/skills/graphify/SKILL.md
+
+When installed, /code-map detects it automatically and prefers it over
+the vendored Node.js scripts.
+```
+
+If the user answered B) to question 6, do not print the install reminder.
+
 These plugins are complementary to the harness and do not conflict:
 - `superpowers` — structured workflows used by the harness pipeline for brainstorming, planning, TDD, debugging, and verification
 - `code-review` — PR review (our harness does sprint evaluation, not PR review)
@@ -206,6 +238,8 @@ These plugins are complementary to the harness and do not conflict:
 - `frontend-design` — aesthetic-direction skill. Invoked by `ui-designer` during `/design` and by frontend teammates during `/implement` to avoid raw-Tailwind-default UI. The `design-critic` GAN loop still owns scoring and iteration control — `frontend-design` does not replace it.
 - `context7` — up-to-date library/docs lookup MCP. Useful when teammates need current API references for third-party libraries.
 - `code-simplifier` — in-session `/simplify` skill used during `/refactor` for reuse, quality, and efficiency cleanup.
+
+- `graphify` (community, **user-scope skill** — not enabled via `enabledPlugins`) — when installed via its CLI, `/code-map` defers to it for tree-sitter call-graph and inheritance edges across 25 languages. Optional; vendored Node.js scripts cover the same six core languages without it.
 
 **Do NOT install** these official plugins (they conflict with harness functionality):
 - `feature-dev` — competes with our `/brd` -> `/spec` -> `/design` -> `/implement` pipeline
@@ -269,6 +303,8 @@ One-way dependencies only. See `.claude/architecture.md` for full rules.
 | `/build` | Full 8-phase pipeline |
 | `/vibe` | Controlled small-change lane |
 | `/brownfield` | Map an existing codebase before changing it |
+| `/code-map` | Build a deterministic dependency graph (consumed by `/brownfield`, `/seam-finder`) |
+| `/seam-finder` | Rank seam candidates for a goal using the code graph |
 | `/auto` | Autonomous ratcheting loop |
 | `/implement` | Code gen with agent teams |
 | `/evaluate` | Run app, verify contract |
@@ -506,7 +542,7 @@ Print:
 
 Installed:
   7 agents      → .claude/agents/
-  21 skills     → .claude/skills/
+  23 skills     → .claude/skills/
   12 hooks      → .claude/hooks/
   8 templates   → .claude/templates/
   6 state files → .claude/state/

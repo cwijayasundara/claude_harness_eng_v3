@@ -47,6 +47,7 @@ Do not proceed to implementation until acceptance criteria are written and confi
 Read the current codebase to understand what is affected:
 
 - **Brownfield map:** if `specs/brownfield/` exists, read `codebase-map.md`, `architecture-map.md`, `test-map.md`, `risk-map.md`, and `change-strategy.md` before assessing impact. If this is a non-trivial existing codebase and the brownfield map is missing, recommend `/brownfield` unless the change qualifies for `/vibe`.
+- **Seam selection:** if `code-graph.json` is present and the change touches more than one file, run `/seam-finder "<improvement description>"` to pick the safest existing module to extend or wrap, before deciding which files to modify in Step 4. Skip this for changes scoped to a single known file.
 - **Affected files:** which source files implement the functionality being changed?
 - **Affected API contracts:** does this change any request/response shape, endpoint signature, or event payload?
 - **Existing test coverage:** run the current test suite. Record which tests cover the affected files. These are the tests that must continue to pass (with updates if behavior changes intentionally).

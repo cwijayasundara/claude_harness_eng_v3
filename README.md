@@ -6,7 +6,7 @@ A Claude Code plugin scaffold that implements best practices from [Anthropic](ht
 
 ## Current Status
 
-Version: `1.1.4`
+Version: `1.1.5`
 
 This repo has been tested as a local Claude Code plugin and as a scaffolded project install.
 
@@ -19,12 +19,14 @@ Latest smoke target:
 Verified:
 
 - Plugin manifest validates with `claude plugin validate .claude`.
-- Scaffold target contains 7 agents, 21 skills, 15 hooks, 8 templates, and 6 seeded state files.
+- Scaffold target contains 7 agents, 23 skills, 15 hooks, 8 templates, and 6 seeded state files.
 - Scaffold copies `.claude/.claude-plugin/plugin.json`, so the scaffolded `.claude/` is also plugin-valid.
 - `.claude/settings.json`, `features.json`, `project-manifest.json`, and generated design schemas parse as JSON.
 - Hook JavaScript files pass `node --check`.
 - Simple SDLC smoke created BRD-derived stories, dependency graph, valid `features.json`, and minimal design contracts.
 - Brownfield smoke produced `codebase-map.md`, `architecture-map.md`, `test-map.md`, `risk-map.md`, and `change-strategy.md`.
+- `/code-map` smoke against a 187-file polyglot repo (Python + Java + JS) completed in ~0.6s, produced `code-graph.json`, `dependency-graph.md` (Mermaid), and `coupling-report.md` with 232 internal edges, 833 external imports, and 10 ranked hubs.
+- `/seam-finder` smoke ranked 100 candidates against the same graph (87 test/fixture files filtered automatically) and surfaced `platform_core/kg/__init__.py` as the top `introduce-adapter` candidate with goal-keyword bump applied.
 
 Known caveat: non-interactive `claude -p` scaffold runs can be interrupted by upstream API retries. The scaffold copy path is validated, but long runs may need a retry or completion from the copied scaffold instructions if the API terminates mid-run.
 
@@ -39,6 +41,7 @@ Known caveat: non-interactive `claude -p` scaffold runs can be interrupted by up
 - **Bounded clarification** — Load-bearing questions only, with a 10-question default and 15-question hard cap
 - **Controlled vibe coding** — Small low-risk changes use a micro-contract and targeted verification instead of full SDLC ceremony
 - **Brownfield discovery** — Existing repos get factual architecture, test, risk, and change-strategy maps before broad edits
+- **Graph-grounded brownfield** — `/code-map` produces a deterministic dependency graph (file + import + symbols + Python call graph) for Python, Node, TypeScript, Java, C#, and Go; `/seam-finder` ranks safe cut-points using Fowler's observable + funnel + read/write asymmetry scoring with goal-keyword relevance bump and automatic test/fixture filtering
 - **Deep-module bias** — Prefer small public interfaces with meaningful hidden behavior; avoid pass-through abstractions
 - **Public-interface testing** — Tests verify observable behavior, not private helper calls or internal wiring
 - **TDD mandatory** — Tests first, 100% meaningful coverage target, 80% hard floor
@@ -390,13 +393,46 @@ It writes:
 
 ```text
 specs/brownfield/
-  codebase-map.md
-  architecture-map.md
-  test-map.md
-  risk-map.md
-  change-strategy.md
+  codebase-map.md           # languages, frameworks, entry points, services
+  code-graph.json           # deterministic AST + import + Python call graph
+  dependency-graph.md       # Mermaid render of file-level edges (top-N hubs)
+  coupling-report.md        # fan-in / fan-out / cycles / unstable hubs
+  architecture-map.md       # modules, layers, data flow — cites graph evidence
+  test-map.md               # test commands, coverage signals, gaps
+  risk-map.md               # domain risks + structural risks (cycles, unstable hubs)
+  change-strategy.md        # recommended lane: /vibe, /improve, /refactor, /spec
+  seams-<goal>.md           # ranked seam candidates (when /seam-finder is run)
 CONTEXT.md                  # optional domain glossary
 ```
+
+`/brownfield` invokes `/code-map` internally; you can also run it standalone (e.g. for `/refactor` or `/improve` impact analysis) or pair it with `/seam-finder "<goal>"` to rank candidate cut-points by Fowler's observable + funnel + read/write asymmetry scoring with goal-keyword bump. See `.claude/skills/code-map/SKILL.md` and `.claude/skills/seam-finder/SKILL.md`.
+
+**Producer chain.** `/code-map` resolves to the strongest available producer:
+
+1. `graphify` skill (`safishamsi/graphify`) — 25 languages via tree-sitter
+2. `hex-graph` MCP (`levnikolaevich/claude-code-skills`) — deterministic SQLite KG
+3. **Vendored Node.js scripts** (zero npm deps, regex-based) — Python, Node, TypeScript, Java, C#, Go. Produces file + import + top-level symbols for all six; **adds a coarse call graph and `__init__.py` re-export resolution for Python**.
+
+The vendored fallback completes in under a second on a 200-file polyglot repo. For full call-graph and inheritance edges in non-Python languages, install `graphify` (or `hex-graph`).
+
+**Optional: install graphify.** It is a community **user-scope skill**, not a marketplace plugin — it cannot be enabled via `enabledPlugins` in `settings.json`. Install once per machine via its own CLI:
+
+```bash
+npm install -g @safishamsi/graphify   # or: brew install graphify
+graphify install                      # writes ~/.claude/skills/graphify/SKILL.md
+```
+
+After install, every brownfield run picks it up automatically. `/scaffold` offers this as an optional question 6 and prints the install reminder in its final report; nothing in the harness depends on it being installed.
+
+**Seam scoring.** `/seam-finder` reads `code-graph.json` and ranks file-level seams:
+
+- **Observable** (0.4 weight) — boundary heuristics for `routes/`, `controllers/`, `api/`, `endpoints/`, `resolvers/`, `cli/`, `commands/`, `queues/`, `events/`, `consumers/`, `producers/`, `webhooks/`, `workers/`, `jobs/`, `db/`, `repository/`, `models/`, `migrations/`, `entities/`, `services/`, `domain/`, `usecases/`, `workflows/`, `adapters/`, `gateway/`, `clients/`, `integrations/`
+- **Funnel** (0.4 weight) — fan-in + fan-out, normalized to repo max
+- **Asymmetry** (0.2 weight) — read/write imbalance; pure readers and pure writers score highest
+- **Goal-relevance bump** (1.5×) when goal keywords match the candidate's path or symbols
+- **Test/fixture filter** — paths under `tests/`, `__tests__/`, `spec/`, `*_test.*`, `*.spec.*`, `fixtures/`, `mocks/`, `examples/` are excluded by default; opt in with `--include-tests` or `--include-fixtures`
+
+Each candidate gets a recommended action: `extend`, `wrap`, `split`, `introduce-adapter`, or `avoid`. Cycle members are flagged because their fan-in/fan-out is unreliable.
 
 Use the output to choose the right lane:
 
@@ -424,6 +460,8 @@ See `design.md` for full architecture reference (system diagram, agent roles, ho
 | `clarify` | Bounded clarification for load-bearing product/design decisions |
 | `vibe` | Controlled small-change lane with micro-contract and targeted verification |
 | `brownfield` | Discover architecture, tests, risks, and change strategy for existing repos |
+| `code-map` | Build a deterministic dependency graph (Python, Node, TS, Java, C#, Go) — JSON + Mermaid + coupling report |
+| `seam-finder` | Rank safe cut-points for a goal using Fowler observable + funnel + R/W asymmetry scoring |
 | `brd` | Socratic interview -> BRD |
 | `spec` | BRD -> stories + dependency graph + features.json |
 | `design` | Architecture + schemas + mockups |

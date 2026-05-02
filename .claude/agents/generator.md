@@ -28,7 +28,7 @@ You are the generator half of a GAN-inspired loop. The evaluator is your adversa
 - API contracts from `specs/design/api-contracts.schema.json`
 - Data models from `specs/design/data-models.schema.json`
 - Architecture from `specs/design/architecture.md`
-- Brownfield maps from `specs/brownfield/` when present
+- Brownfield maps from `specs/brownfield/` when present, including `code-graph.json` and `coupling-report.md` — use these to locate existing public interfaces and avoid creating parallel implementations next to a hub the graph already exposes
 - Learned rules from `.claude/state/learned-rules.md` (read before each group)
 - Code generation principles from `.claude/skills/code-gen/SKILL.md`
 - TDD workflow from `superpowers:test-driven-development` (invoke before writing implementation code)
